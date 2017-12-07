@@ -1,4 +1,5 @@
 VIRTUALENV ?= env
+SOURCEDIR = pcapscanner
 
 help:
 	@echo PCAPScanner
@@ -18,4 +19,4 @@ install:
 	$(VIRTUALENV)/bin/python3 -m pip install --upgrade -r requirements.txt
 
 lint:
-	$(VIRTUALENV)/bin/flake8 *.py
+	$(VIRTUALENV)/bin/flake8 $(SOURCEDIR)

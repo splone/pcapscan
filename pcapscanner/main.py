@@ -65,33 +65,13 @@ class Main:
 
         with Pool(processes=4) as pool:
 
-            # go through all files beginning with the oldest
-            for fStr in pcapfiles:
-
-                f = open(fStr, 'rb')
-                try:
-                    with gzip.open(f, 'rb') as g:
-                        # test if this is really GZIP, raises exception if not
-                        g.peek(1)
-
-                        # analyze the binary pcap file data
-                        # asynchronously
-#FIXME doesn't work
-#                        pool.apply_async(
-#                            pcap.process_pcap, (f, self.analysers)
-#                        )
-                        pcap.process_pcap(f, self.analysers)
-
-                except OSError as e:
-                    # error case: add to ignored files with cause, and
-                    # continue with next
-                    self.ignoredFiles[os.path.abspath(fStr)] = str(e)
-                    continue
-                finally:
-                    f.close()
-
-        # log errors
-        self._log_errors()
+            for fn in pcapfiles:
+                # analyze the binary pcap file data
+                # asynchronously
+                p = pool.apply(
+                    pcap.process_pcap, (fn, self.analysers)
+                )
+                print(p.get())
 
         self._log_errors()
         self._log_results()

@@ -83,7 +83,7 @@ def walk(directory):
     )
 
 
-def process_pcap(pcapfile, analysers):
+def process_pcap(pcapfn, analysers):
     """
     Scan the given file object for hosts data, collect statistics for each.
     Using dpkt as pcap parser (does work :) )
@@ -95,7 +95,12 @@ def process_pcap(pcapfile, analysers):
     """
     print("processing {}".format(pcapfile))
 
+    f = open(fn, 'rb')
     try:
+        with gzip.open(f, 'rb') as g:
+            # test if this is really GZIP, raises exception if not
+            g.peek(1)
+
         cap = pyshark.FileCapture(
             os.path.abspath(pcapfile.name),
             only_summaries=False)
@@ -112,3 +117,5 @@ def process_pcap(pcapfile, analysers):
     except KeyboardInterrupt:
         print("Bye")
         sys.exit()
+    finally:
+        f.close()

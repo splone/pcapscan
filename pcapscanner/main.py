@@ -52,6 +52,10 @@ class Main:
 
         print("ignored {} files".format(len(self.ignoredFiles)))
 
+    def _log_results(self):
+        for a in self.analysers:
+            a.log()
+
     def start(self):
         pcapfiles = pcap.walk(self.inputdir)
         print(
@@ -89,9 +93,8 @@ class Main:
         # log errors
         self._log_errors()
 
-        # log results
-        for a in self.analysers:
-            a.log()
+        self._log_errors()
+        self._log_results()
 
 
 if __name__ == '__main__':

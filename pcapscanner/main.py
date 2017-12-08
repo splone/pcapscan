@@ -7,17 +7,21 @@ to package analysis class PCAPScan.
 """
 
 import argparse
+import csv
 import os
 import gzip
 import csv
 import time
 from contextlib import contextmanager
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 
 from analysers import hosts, conversations
 import pcap
 
-ANALYSERS = [hosts.HostCounter]
+ANALYSERS = [
+    (hosts.host_counter, hosts.CSV)
+]
+
 
 @contextmanager
 def timing_context(name):
@@ -29,20 +33,6 @@ def timing_context(name):
     elif duration < 3600:
         print ("took {} minutes, {} seconds".format(int(duration)/60),int(duration)%60)
 
-"""
-Dummy function to test multithreading pool
-"""
-def dummy_func(file):
-    print("Process "+file)
-    time.sleep(1)
-
-def process_parsed_packages(res):
-    print("PROCESS PARSED - GOT ",len(res))
-    pass
-
-def fail_parsed_packages_handler(res):
-    print("PROCESS PARSED - FAILES ",res)
-    pass
 
 class Main:
 
@@ -66,7 +56,9 @@ class Main:
         self.inputdir = inputdir
 
         # initialize all analysers
-        self.analysers = [a(self.outputdir) for a in ANALYSERS]
+        manager = Manager()
+        for a, _ in ANALYSERS:
+            setattr(a, 'storage', manager.dict())
 
     def _log_errors(self):
         if not self.ignoredFiles:
@@ -79,8 +71,11 @@ class Main:
         print("ignored {} files".format(len(self.ignoredFiles)))
 
     def _log_results(self):
-        for a in self.analysers:
-            a.log()
+        for a, csvfn in ANALYSERS:
+            fn = os.path.join(self.outputdir, csvfn)
+            with open(fn, 'w') as f:
+                w = csv.writer(f)
+                w.writerows(a.storage.items())
 
     def start(self):
         pcapfiles = pcap.walk(self.inputdir)
@@ -88,35 +83,20 @@ class Main:
             "Collected list of {} files in {}".
             format(len(pcapfiles), self.inputdir)
         )
-        # use 1 thread for debugging
+
         with Pool(processes=1) as pool:
+
             # async map the process_pcap function to the list of files
-            pool.map_async(
-                #dummy_func, [ (f) for f in pcapfiles ]
-                pcap.process_pcap, [ (f) for f in pcapfiles ],
-                callback=process_parsed_packages,
-                error_callback=fail_parsed_packages_handler
-            )
-            # start the processing
-            pool.close()
-            pool.join()
-            # The self.analysers reference in the tuple caused the error
-            # "TypeError: can't pickle _thread.lock objects"
-            # However, the apply method seems to do not work the way
-            # it is used here. It does not work with the dummy_func either
-            # because it puts all filenames at once into the function at
-            # the get call.
-#            for fn in pcapfiles:
+            for fn in pcapfiles:
                 # analyze the binary pcap file data
                 # asynchronously
-#                p = pool.apply(
-#                    process_file, (fn)
-#                )
-#                print(p.get())
+                pool.apply(
+                    pcap.process_pcap, (fn, [a for a, _ in ANALYSERS])
+                )
+
         #print("Results",len(results))
         self._log_errors()
         self._log_results()
-
 
 
 if __name__ == '__main__':

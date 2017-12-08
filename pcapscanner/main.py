@@ -10,13 +10,31 @@ import argparse
 import os
 import gzip
 import csv
+import time
+from contextlib import contextmanager
 from multiprocessing import Pool
 
 from analysers import hosts, conversations
 import pcap
 
-ANALYSERS = [hosts.HostCounter, conversations.ConversationCounter]
+ANALYSERS = [hosts.HostCounter]
 
+@contextmanager
+def timing_context(name):
+    startTime = time.time()
+    yield
+    duration = time.time() - startTime
+    if duration < 60:
+        print("took {} seconds".format(duration))
+    elif duration < 3600:
+        print ("took {} minutes, {} seconds".format(int(duration)/60),int(duration)%60)
+
+"""
+Dummy function to test multithreading pool
+"""
+def dummy_func(file):
+    print("Process "+file)
+    time.sleep(1)
 
 class Main:
 
@@ -64,15 +82,28 @@ class Main:
         )
 
         with Pool(processes=4) as pool:
+            # async map the process_pcap function to the list of files
+            result_queue=pool.map_async(
+                dummy_func, [ (f) for f in pcapfiles ]
+                #pcap.process_pcap, [ (f) for f in pcapfiles ]
+            )
+            # start the processing
+            results=result_queue.get(len(pcapfiles))
 
-            for fn in pcapfiles:
+            # The self.analysers reference in the tuple caused the error
+            # "TypeError: can't pickle _thread.lock objects"
+            # However, the apply method seems to do not work the way
+            # it is used here. It does not work with the dummy_func either
+            # because it puts all filenames at once into the function at
+            # the get call.
+#            for fn in pcapfiles:
                 # analyze the binary pcap file data
                 # asynchronously
-                p = pool.apply(
-                    pcap.process_pcap, (fn, self.analysers)
-                )
-                print(p.get())
-
+#                p = pool.apply(
+#                    process_file, (fn)
+#                )
+#                print(p.get())
+        #print("Results",len(results))
         self._log_errors()
         self._log_results()
 
@@ -97,4 +128,5 @@ if __name__ == '__main__':
         outputdir=args.outputdir,
         inputdir=args.inputdir
     )
-    scanner.start()
+    with timing_context("Processing pcaps in folder {}".format(args.inputdir)):
+        scanner.start()

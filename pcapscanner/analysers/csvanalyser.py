@@ -5,6 +5,7 @@ class CsvAnalyser:
 
     def __init__(self):
         self.csvfile = ""
+        super().__init__()
 
     def log(self, rows):
         if not self.csvfile:

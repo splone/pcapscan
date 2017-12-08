@@ -5,8 +5,8 @@ CSV = "hostcounter.csv"
 def host_counter(pkt):
     hosts = host_counter.storage
     try:
-        src_addr = str(pkt.ip.src)
-        dst_addr = str(pkt.ip.dst)
+        src_addr = str(pkt.ip_src)
+        dst_addr = str(pkt.ip_dst)
 
         if src_addr in hosts.keys():
             hosts[src_addr] += 1

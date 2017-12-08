@@ -12,7 +12,6 @@ import os
 import gzip
 import csv
 import time
-from contextlib import contextmanager
 from multiprocessing import Pool, Manager
 
 from analysers import hosts, conversations
@@ -23,18 +22,6 @@ NUM_THREADS=4
 ANALYSERS = [
     (hosts.host_counter, hosts.CSV)
 ]
-
-
-@contextmanager
-def timing_context(name):
-    startTime = time.time()
-    yield
-    duration = time.time() - startTime
-    if duration < 60:
-        print("took {} seconds".format(duration))
-    elif duration < 3600:
-        print ("took {} minutes, {} seconds".format(int(duration)/60),int(duration)%60)
-
 
 class Main:
 
@@ -103,11 +90,11 @@ class Main:
             # wait for workers to finish
             pool.join()
 
-
-
         #print("Results",len(results))
         self._log_errors()
         self._log_results()
+        # return number of pcap files
+        return len(pcapfiles)
 
 
 if __name__ == '__main__':
@@ -130,5 +117,13 @@ if __name__ == '__main__':
         outputdir=args.outputdir,
         inputdir=args.inputdir
     )
-    with timing_context("Processing pcaps in folder {}".format(args.inputdir)):
-        scanner.start()
+    # measure time
+    startTime = time.time()
+    # do the processing
+    processed=scanner.start()
+    # output summary of timing
+    duration = time.time() - startTime
+    if duration < 60:
+        print("Processing {} pcaps took {:2.2f} seconds".format(processed,duration))
+    elif duration < 3600:
+        print ("Processing {} pcaps took {} minutes, {:2.2f} seconds".format(processed,int(duration)/60),int(duration)%60)

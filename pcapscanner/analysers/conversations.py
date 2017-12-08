@@ -16,8 +16,8 @@ class ConversationCounter(SynchedAnalyser, CsvAnalyser):
     def do(self, pkt):
 
         try:
-            src_addr = pkt.ip.src
-            dst_addr = pkt.ip.dst
+            src_addr = pkt.ip_src
+            dst_addr = pkt.ip_dst
 
             if src_addr in self.conversations:
 

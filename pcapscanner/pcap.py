@@ -7,7 +7,21 @@ import pyshark
 import functools
 from tqdm import tqdm
 from datetime import datetime as dt
+from collections import namedtuple
 
+"""
+This is the destination format of parsed pcap packages.
+We use this to save memory, so we do not need to store
+the whole pcap in RAM before analysers start their work.
+"""
+ParsedPackage = namedtuple('ParsedPackage', [
+    'protocol',
+    'ip_src',
+    'ip_dst',
+    'port_src',
+    'port_dst',
+    'pcap_file'
+])
 
 def sort_by_date(a, b):
     """
@@ -111,16 +125,26 @@ def process_pcap(pcapfile, analysers, progressbar_position):
         # read array (to resolve futures) and return only the information
         # we need (to reduce memory needed)
         for pkt in tqdm(cap,position=progressbar_position,unit="packages",desc=os.path.basename(pcapfile)):
+            
             try:
-
-                for analyser in analysers:
-                    analyser(pkt)
+                # fetch the infos we need
+                parsedPkg=ParsedPackage(
+                            protocol=pkt.transport_layer,
+                            ip_src=pkt.ip.src,
+                            port_src=pkt[pkt.transport_layer].srcport,
+                            ip_dst=pkt.ip.dst,
+                            port_dst=pkt[pkt.transport_layer].dstport,
+                            pcap_file=pcapfile
+                )
 
             except AttributeError as e:
-                #print("FAIL create ParsedPackage")
-                #ignore packets that aren't TCP/UDP or IPv4
-                pass
-        print("processed {} packages from {}".format(len(out),pcapfile))
+                    #print("FAIL create ParsedPackage")
+                    #ignore packets that aren't TCP/UDP or IPv4
+                    continue
+
+            # process the stats we need
+            for analyser in analysers:
+                analyser(parsedPkg)
 
     except KeyboardInterrupt:
         print("Bye")

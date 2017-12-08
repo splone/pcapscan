@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import gzip
 import pyshark
 import functools
 from tqdm import tqdm
@@ -83,10 +84,10 @@ def walk(directory):
     )
 
 
-def process_pcap(pcapfn, analysers):
+def process_pcap(pcapfile):
     """
     Scan the given file object for hosts data, collect statistics for each.
-    Using dpkt as pcap parser (does work :) )
+    Using pyshark as pcap parser (does work :) )
 
     see https://github.com/KimiNewt/pyshark
     https://thepacketgeek.com/pyshark-using-the-packet-object/
@@ -94,28 +95,29 @@ def process_pcap(pcapfn, analysers):
     If a exception is thrown the same error is shown in wireshark
     """
     print("processing {}".format(pcapfile))
-
-    f = open(fn, 'rb')
+    f = open(pcapfile, 'rb')
     try:
         with gzip.open(f, 'rb') as g:
             # test if this is really GZIP, raises exception if not
             g.peek(1)
 
         cap = pyshark.FileCapture(
-            os.path.abspath(pcapfile.name),
+            os.path.abspath(pcapfile),
             only_summaries=False)
         cap.set_debug()
 
         # packages can accessed by loop
-        print("\nProcessing {}".format(pcapfile.name))
-        for pkt in tqdm(cap):
+#        for pkt in tqdm(cap):
 
             # apply analyser to packet
-            for analyser in analysers:
-                analyser.apply(pkt)
+#            for analyser in analysers:
+#                analyser.apply(pkt)
 
     except KeyboardInterrupt:
         print("Bye")
         sys.exit()
+    except:
+        e=sys.exc_info()
+        print("FAILED "+str(e[1])+",",str(os.path.abspath(pcapfile)))
     finally:
         f.close()

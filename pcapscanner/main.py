@@ -83,13 +83,13 @@ class Main:
 
         with Pool(processes=4) as pool:
             # async map the process_pcap function to the list of files
-            result_queue=pool.map_async(
-                dummy_func, [ (f) for f in pcapfiles ]
-                #pcap.process_pcap, [ (f) for f in pcapfiles ]
+            pool.map(
+                #dummy_func, [ (f) for f in pcapfiles ]
+                pcap.process_pcap, [ (f) for f in pcapfiles ]
             )
             # start the processing
-            results=result_queue.get(len(pcapfiles))
-
+            pool.close()
+            pool.join()
             # The self.analysers reference in the tuple caused the error
             # "TypeError: can't pickle _thread.lock objects"
             # However, the apply method seems to do not work the way

@@ -17,7 +17,6 @@ import pcap
 
 ANALYSERS = [hosts.HostCounter, conversations.ConversationCounter]
 
-
 class Main:
 
     def __init__(self, outputdir, inputdir):
@@ -68,10 +67,9 @@ class Main:
             for fn in pcapfiles:
                 # analyze the binary pcap file data
                 # asynchronously
-                p = pool.apply(
+                pool.apply(
                     pcap.process_pcap, (fn, self.analysers)
                 )
-                print(p.get())
 
         self._log_errors()
         self._log_results()

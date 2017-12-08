@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import traceback
 import gzip
 import pyshark
 import functools
@@ -124,17 +125,24 @@ def process_pcap(pcapfile):
         # read array (to resolve futures) and return only the information
         # we need (to reduce memory needed)
         print("PARSE PACKAGES")
-        for pkt in cap:
-        out=[ ParsedPackage(
-                protocol=pkt.transport_layer,
-                ip_src=pkt.ip.src,
-                port_src=pkt[pkt.transport_layer].srcport,
-                ip_dst=pkt.ip.dst,
-                port_dst=pkt[pkt.transport_layer].dstport,
-                pcap_file=pcapfile,
-                timestamp="FOOBAR"
-            )  ]
+        for pkt in tqdm(cap):
+            try:
+                out.append(ParsedPackage(
+                        protocol=pkt.transport_layer,
+                        ip_src=pkt.ip.src,
+                        port_src=pkt[pkt.transport_layer].srcport,
+                        ip_dst=pkt.ip.dst,
+                        port_dst=pkt[pkt.transport_layer].dstport,
+                        pcap_file=pcapfile,
+                        timestamp="FOOBAR"
+                    ))
+                #print("SUCCESS create ParsedPackage")
+            except AttributeError as e:
+                #print("FAIL create ParsedPackage")
+                #ignore packets that aren't TCP/UDP or IPv4
+                pass
         print("processed {} packages from {}".format(len(out),pcapfile))
+        return out
         # packages can accessed by loop
 #        for pkt in tqdm(cap):
 
@@ -145,9 +153,9 @@ def process_pcap(pcapfile):
     except KeyboardInterrupt:
         print("Bye")
         sys.exit()
-    #except:
-    #    e=sys.exc_info()
-    #    print("FAILED "+str(e)+",",str(os.path.abspath(pcapfile)))
+    except:
+        e=sys.exc_info()
+        traceback.print_exc(file=sys.stdout)
+        print("FAILED "+str(e[2])+",",str(os.path.abspath(pcapfile)))
     finally:
         f.close()
-        return out

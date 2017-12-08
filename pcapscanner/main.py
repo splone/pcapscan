@@ -36,6 +36,14 @@ def dummy_func(file):
     print("Process "+file)
     time.sleep(1)
 
+def process_parsed_packages(res):
+    print("PROCESS PARSED - GOT ",len(res))
+    pass
+
+def fail_parsed_packages_handler(res):
+    print("PROCESS PARSED - FAILES ",res)
+    pass
+
 class Main:
 
     def __init__(self, outputdir, inputdir):
@@ -80,14 +88,14 @@ class Main:
             "Collected list of {} files in {}".
             format(len(pcapfiles), self.inputdir)
         )
-
+        # use 1 thread for debugging
         with Pool(processes=1) as pool:
             # async map the process_pcap function to the list of files
             pool.map_async(
                 #dummy_func, [ (f) for f in pcapfiles ]
                 pcap.process_pcap, [ (f) for f in pcapfiles ],
-                callback=self.process_parsed_packages,
-                error_callback=self.fail_parsed_packages_handler
+                callback=process_parsed_packages,
+                error_callback=fail_parsed_packages_handler
             )
             # start the processing
             pool.close()
@@ -109,13 +117,7 @@ class Main:
         self._log_errors()
         self._log_results()
 
-    def process_parsed_packages(self,res):
-        print("PROCESS PARSED - GOT ",len(res))
-        pass
 
-    def fail_parsed_packages_handler(self,res):
-        print("PROCESS PARSED - FAILES ",res)
-        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

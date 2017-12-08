@@ -6,7 +6,22 @@ import pyshark
 import functools
 from tqdm import tqdm
 from datetime import datetime as dt
+from collections import namedtuple
 
+"""
+This is the destination format of parsed pcap packages.
+We use this to save memory, so we do not need to store
+the whole pcap in RAM before analysers start their work.
+"""
+ParsedPackage = namedtuple('ParsedPackage', [
+    'protocol',
+    'ip_src',
+    'ip_dst',
+    'port_src',
+    'port_dst',
+    'pcap_file',
+    'timestamp'
+])
 
 def sort_by_date(a, b):
     """
@@ -96,6 +111,7 @@ def process_pcap(pcapfile):
     """
     print("processing {}".format(pcapfile))
     f = open(pcapfile, 'rb')
+    out = []
     try:
         with gzip.open(f, 'rb') as g:
             # test if this is really GZIP, raises exception if not
@@ -105,7 +121,20 @@ def process_pcap(pcapfile):
             os.path.abspath(pcapfile),
             only_summaries=False)
         cap.set_debug()
-
+        # read array (to resolve futures) and return only the information
+        # we need (to reduce memory needed)
+        print("PARSE PACKAGES")
+        for pkt in cap:
+        out=[ ParsedPackage(
+                protocol=pkt.transport_layer,
+                ip_src=pkt.ip.src,
+                port_src=pkt[pkt.transport_layer].srcport,
+                ip_dst=pkt.ip.dst,
+                port_dst=pkt[pkt.transport_layer].dstport,
+                pcap_file=pcapfile,
+                timestamp="FOOBAR"
+            )  ]
+        print("processed {} packages from {}".format(len(out),pcapfile))
         # packages can accessed by loop
 #        for pkt in tqdm(cap):
 
@@ -116,8 +145,9 @@ def process_pcap(pcapfile):
     except KeyboardInterrupt:
         print("Bye")
         sys.exit()
-    except:
-        e=sys.exc_info()
-        print("FAILED "+str(e[1])+",",str(os.path.abspath(pcapfile)))
+    #except:
+    #    e=sys.exc_info()
+    #    print("FAILED "+str(e)+",",str(os.path.abspath(pcapfile)))
     finally:
         f.close()
+        return out

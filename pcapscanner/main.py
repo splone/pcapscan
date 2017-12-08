@@ -81,11 +81,13 @@ class Main:
             format(len(pcapfiles), self.inputdir)
         )
 
-        with Pool(processes=4) as pool:
+        with Pool(processes=1) as pool:
             # async map the process_pcap function to the list of files
-            pool.map(
+            pool.map_async(
                 #dummy_func, [ (f) for f in pcapfiles ]
-                pcap.process_pcap, [ (f) for f in pcapfiles ]
+                pcap.process_pcap, [ (f) for f in pcapfiles ],
+                callback=self.process_parsed_packages,
+                error_callback=self.fail_parsed_packages_handler
             )
             # start the processing
             pool.close()
@@ -107,6 +109,13 @@ class Main:
         self._log_errors()
         self._log_results()
 
+    def process_parsed_packages(self,res):
+        print("PROCESS PARSED - GOT ",len(res))
+        pass
+
+    def fail_parsed_packages_handler(self,res):
+        print("PROCESS PARSED - FAILES ",res)
+        pass
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

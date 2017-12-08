@@ -124,6 +124,6 @@ if __name__ == '__main__':
     # output summary of timing
     duration = time.time() - startTime
     if duration < 60:
-        print("Processing {} pcaps took {:2.2f} seconds".format(processed,duration))
+        print("\n\nProcessing {} pcaps took {:2.2f} seconds".format(processed,duration))
     elif duration < 3600:
-        print ("Processing {} pcaps took {} minutes, {:2.2f} seconds".format(processed,int(duration)/60),int(duration)%60)
+        print ("\n\nProcessing {} pcaps took {} minutes, {:2.2f} seconds".format(processed,int(duration)/60),int(duration)%60)

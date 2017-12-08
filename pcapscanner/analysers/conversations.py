@@ -35,5 +35,4 @@ class ConversationCounter(SynchedAnalyser, CsvAnalyser):
 
     def log(self):
         #TODO log conversations
-        import pdb;pdb.set_trace()
         pass

@@ -7,9 +7,7 @@ to package analysis class PCAPScan.
 """
 
 import argparse
-import csv
 import os
-import gzip
 import csv
 import time
 from multiprocessing import Pool, Manager
@@ -76,25 +74,29 @@ class Main:
         )
 
         with Pool(processes=NUM_THREADS) as pool:
-            c=0
+            c = 0
             # async map the process_pcap function to the list of files
             for fn in pcapfiles:
                 # for tqdm progress bars
-                progressbar_position=c % NUM_THREADS
-                c+=1
+                progressbar_position = c % NUM_THREADS
+                c += 1
+
                 # analyze the binary pcap file data
                 # asynchronously
                 pool.apply_async(
-                    pcap.process_pcap, (fn, [a for a, _ in ANALYSERS], progressbar_position)
+                    pcap.process_pcap,
+                    (fn, [a for a, _ in ANALYSERS], progressbar_position)
                 )
+
             # close pool
             pool.close()
+
             # wait for workers to finish
             pool.join()
 
-        #print("Results",len(results))
         self._log_errors()
         self._log_results()
+
         # return number of pcap files
         return len(pcapfiles)
 
@@ -121,11 +123,20 @@ if __name__ == '__main__':
     )
     # measure time
     startTime = time.time()
+
     # do the processing
-    processed=scanner.start()
+    processed = scanner.start()
+
     # output summary of timing
     duration = time.time() - startTime
+
     if duration < 60:
-        print("\n\nProcessing {} pcaps took {:2.2f} seconds".format(processed,duration))
+        print(
+            "\n\nProcessing {} pcaps took {:2.2f} seconds"
+            .format(processed, duration)
+        )
     elif duration < 3600:
-        print ("\n\nProcessing {} pcaps took {} minutes, {:2.2f} seconds".format(processed,int(duration)/60),int(duration)%60)
+        print(
+            "\n\nProcessing {} pcaps took {} minutes, {:2.2f} seconds"
+            .format(processed, int(duration) / 60, int(duration) % 60)
+        )

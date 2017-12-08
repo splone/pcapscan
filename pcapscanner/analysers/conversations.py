@@ -16,6 +16,7 @@ def conversation_counter(pkt):
                 conversations[src_addr][dst_addr] = 0
 
         else:
+            #FIXME dict not synced
             conversations[src_addr] = dict()
 
     except AttributeError as e:

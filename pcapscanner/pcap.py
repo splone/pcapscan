@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import traceback
 import gzip
 import pyshark
 import functools
@@ -22,6 +21,7 @@ ParsedPackage = namedtuple('ParsedPackage', [
     'port_dst',
     'pcap_file'
 ])
+
 
 def sort_by_date(a, b):
     """
@@ -50,7 +50,6 @@ def sort_by_date(a, b):
     aDate = dt.strptime(aDateStr, "%Y%m%d-%H%M%S")
     bDate = dt.strptime(bDateStr, "%Y%m%d-%H%M%S")
 
-    #print("Compare ",aDate,bDate,(aDate<bDate))
     # compare and sort from oldest to new
     if aDate < bDate:
         return -1
@@ -72,7 +71,6 @@ def sort_by_date(a, b):
             numA = 0
             numB = 0
 
-        #print("fetched numbers ",numA,vpnA,numB,vpnB)
         if numA < numB:
             return -1
         elif numA == numB:
@@ -110,8 +108,8 @@ def process_pcap(pcapfile, analysers, progressbar_position):
     If a exception is thrown the same error is shown in wireshark
     """
     print("processing {}".format(pcapfile))
+
     f = open(pcapfile, 'rb')
-    out = []
     try:
         with gzip.open(f, 'rb') as g:
             # test if this is really GZIP, raises exception if not
@@ -124,11 +122,16 @@ def process_pcap(pcapfile, analysers, progressbar_position):
 
         # read array (to resolve futures) and return only the information
         # we need (to reduce memory needed)
-        for pkt in tqdm(cap,position=progressbar_position,unit="packages",desc=os.path.basename(pcapfile)):
-            
+        for pkt in tqdm(
+            cap,
+            position=progressbar_position,
+            unit=" packages",
+            desc=os.path.basename(pcapfile)
+        ):
+
             try:
                 # fetch the infos we need
-                parsedPkg=ParsedPackage(
+                parsedPkg = ParsedPackage(
                             protocol=pkt.transport_layer,
                             ip_src=pkt.ip.src,
                             port_src=pkt[pkt.transport_layer].srcport,
@@ -137,10 +140,9 @@ def process_pcap(pcapfile, analysers, progressbar_position):
                             pcap_file=pcapfile
                 )
 
-            except AttributeError as e:
-                    #print("FAIL create ParsedPackage")
-                    #ignore packets that aren't TCP/UDP or IPv4
-                    continue
+            except AttributeError:
+                # ignore packets that aren't TCP/UDP or IPv4
+                continue
 
             # process the stats we need
             for analyser in analysers:

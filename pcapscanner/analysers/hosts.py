@@ -1,6 +1,5 @@
-import os
-
 CSV = "hostcounter.csv"
+
 
 def host_counter(pkt):
     hosts = host_counter.storage

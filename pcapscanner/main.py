@@ -17,11 +17,13 @@ from multiprocessing import Pool, Manager
 from analysers import hosts, conversations
 import pcap
 
-NUM_THREADS=4
+NUM_THREADS = 4
 
 ANALYSERS = [
-    (hosts.host_counter, hosts.CSV)
+    (hosts.host_counter, hosts.CSV),
+    (conversations.conversation_counter, conversations.CSV)
 ]
+
 
 class Main:
 

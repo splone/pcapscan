@@ -1,38 +1,23 @@
-import os
-
-from analysers.synchedanalyser import SynchedAnalyser
-from analysers.csvanalyser import CsvAnalyser
-
 CSV = "conversations.csv"
 
 
-class ConversationCounter(SynchedAnalyser, CsvAnalyser):
+def conversation_counter(pkt):
+    conversations = conversation_counter.storage
 
-    def __init__(self, outputdir):
-        self.conversations = dict()
-        self.csvfile = os.path.join(outputdir, CSV)
-        super().__init__()
+    try:
+        src_addr = str(pkt.ip_src)
+        dst_addr = str(pkt.ip_dst)
 
-    def do(self, pkt):
+        if src_addr in conversations.keys():
 
-        try:
-            src_addr = pkt.ip_src
-            dst_addr = pkt.ip_dst
-
-            if src_addr in self.conversations:
-
-                if dst_addr in self.conversations[src_addr]:
-                    self.conversations[src_addr][dst_addr] += 1
-                else:
-                    self.conversations[src_addr][dst_addr] = 0
-
+            if dst_addr in conversations[src_addr].keys():
+                conversations[src_addr][dst_addr] += 1
             else:
-                self.conversations[src_addr] = dict()
+                conversations[src_addr][dst_addr] = 0
 
-        except AttributeError as e:
-            # ignore packets that aren't TCP/UDP or IPv4
-            pass
+        else:
+            conversations[src_addr] = dict()
 
-    def log(self):
-        #TODO log conversations
+    except AttributeError as e:
+        # ignore packets that aren't TCP/UDP or IPv4
         pass

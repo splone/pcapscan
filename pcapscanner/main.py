@@ -18,6 +18,8 @@ from multiprocessing import Pool, Manager
 from analysers import hosts, conversations
 import pcap
 
+NUM_THREADS=4
+
 ANALYSERS = [
     (hosts.host_counter, hosts.CSV)
 ]
@@ -84,15 +86,24 @@ class Main:
             format(len(pcapfiles), self.inputdir)
         )
 
-        with Pool(processes=1) as pool:
-
+        with Pool(processes=NUM_THREADS) as pool:
+            c=0
             # async map the process_pcap function to the list of files
             for fn in pcapfiles:
+                # for tqdm progress bars
+                progressbar_position=c % NUM_THREADS
+                c+=1
                 # analyze the binary pcap file data
                 # asynchronously
-                pool.apply(
-                    pcap.process_pcap, (fn, [a for a, _ in ANALYSERS])
+                pool.apply_async(
+                    pcap.process_pcap, (fn, [a for a, _ in ANALYSERS], progressbar_position)
                 )
+            # close pool
+            pool.close()
+            # wait for workers to finish
+            pool.join()
+
+
 
         #print("Results",len(results))
         self._log_errors()

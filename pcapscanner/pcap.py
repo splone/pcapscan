@@ -85,7 +85,7 @@ def walk(directory):
     )
 
 
-def process_pcap(pcapfile, analysers):
+def process_pcap(pcapfile, analysers, progressbar_position):
     """
     Scan the given file object for hosts data, collect statistics for each.
     Using pyshark as pcap parser (does work :) )
@@ -110,8 +110,7 @@ def process_pcap(pcapfile, analysers):
 
         # read array (to resolve futures) and return only the information
         # we need (to reduce memory needed)
-        print("PARSE PACKAGES")
-        for pkt in tqdm(cap):
+        for pkt in tqdm(cap,position=progressbar_position,unit="packages",desc=os.path.basename(pcapfile)):
             try:
 
                 for analyser in analysers:

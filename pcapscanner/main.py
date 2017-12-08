@@ -1,4 +1,3 @@
-#! env/bin/python3
 # -*- coding: utf-8 -*-
 
 """
@@ -8,16 +7,20 @@ to package analysis class PCAPScan.
 """
 
 import argparse
-import sys
 import os
-import functools
-import re
-import gzip
 import csv
+import time
+from multiprocessing import Pool, Manager
 
-from PCAPScan import PCAPScan
-from tqdm import tqdm
-from datetime import datetime as dt
+from analysers import hosts, conversations
+import pcap
+
+NUM_THREADS = 4
+
+ANALYSERS = [
+    (hosts.host_counter, hosts.CSV),
+    (conversations.conversation_counter, conversations.CSV)
+]
 
 
 class Main:
@@ -28,12 +31,9 @@ class Main:
         self.outputdir = outputdir
         self.ignoredLogFileName = \
             os.path.join(outputdir, 'ignored_files.csv')
-        self.resultSummaryFileName = \
-            os.path.join(outputdir, 'analysis_pcaps.txt')
 
         # emtpy files
         open(self.ignoredLogFileName, 'w').close()
-        open(self.resultSummaryFileName, 'w').close()
 
         # collect error files and exception cause
         self.ignoredFiles = dict()
@@ -44,127 +44,61 @@ class Main:
             )
         self.inputdir = inputdir
 
+        # initialize all analysers
+        manager = Manager()
+        for a, _ in ANALYSERS:
+            setattr(a, 'storage', manager.dict())
 
-    def analyse(self):
+    def _log_errors(self):
+        if not self.ignoredFiles:
+            return
 
-        # collect all files below given folder
-        regex = '.*pcap'
-        pcapFilesUnordered = [
-            os.path.join(dp, f) for dp, dn, filenames
-            in tqdm(os.walk(self.inputdir)) for f in filenames
-            if re.match(regex, os.path.basename(f))
-        ]
+        with open(self.ignoredLogFileName, 'w') as f:
+            w = csv.writer(f)
+            w.writerows(self.ignoredFiles.items())
 
+        print("ignored {} files".format(len(self.ignoredFiles)))
+
+    def _log_results(self):
+        for a, csvfn in ANALYSERS:
+            fn = os.path.join(self.outputdir, csvfn)
+            with open(fn, 'w') as f:
+                w = csv.writer(f)
+                w.writerows(a.storage.items())
+
+    def start(self):
+        pcapfiles = pcap.walk(self.inputdir)
         print(
             "Collected list of {} files in {}".
-            format(len(pcapFilesUnordered), self.inputdir)
+            format(len(pcapfiles), self.inputdir)
         )
 
-        # sort them by timestamp in filename
-        self.pcapFiles = sorted(
-            pcapFilesUnordered, key=functools.cmp_to_key(self.customSortByDate)
-        )
+        with Pool(processes=NUM_THREADS) as pool:
+            c = 0
+            # async map the process_pcap function to the list of files
+            for fn in pcapfiles:
+                # for tqdm progress bars
+                progressbar_position = c % NUM_THREADS
+                c += 1
 
-        # start up the scanner
-        scanner = PCAPScan()
-
-        # go through all files beginning with the oldest
-        for fStr in self.pcapFiles:
-
-            f = open(fStr, 'rb')
-            try:
-                with gzip.open(f, 'rb') as g:
-                    # test if this is really GZIP, raises exception if not
-                    g.peek(1)
-                    # analyze the binary pcap file data
-                    scanner.scanPcapPyshark(f)
-
-            except OSError as e:
-                # error case: add to ignored files with cause, and
-                # continue with next
-                self.ignoredFiles[os.path.abspath(fStr)] = str(e)
-                continue
-            finally:
-                f.close()
-
-        # if files has been ignored tell the user that this happend (and write
-        # why into the log file)
-        if len(self.ignoredFiles) > 0:
-            with open(self.ignoredLogFileName, 'w') as f:
-                w = csv.writer(f)
-                w.writerows(self.ignoredFiles.items())
-
-            numIgnored = len(self.ignoredFiles)
-            percentage = (100.0 / len(self.pcapFiles)) * numIgnored
-            print(
-                "Ignored {} files of {}. Wrote details to {}.".
-                format(
-                    numIgnored,
-                    len(self.pcapFiles),
-                    "({0:.2f}%)".format(percentage),
-                    self.ignoredLogFileName
+                # analyze the binary pcap file data
+                # asynchronously
+                pool.apply_async(
+                    pcap.process_pcap,
+                    (fn, [a for a, _ in ANALYSERS], progressbar_position)
                 )
-            )
 
-    def customSortByDate(self, a, b):
-        """
-        Custom sort function to compare them by their timestamp in filename
-        """
+            # close pool
+            pool.close()
 
-        regex = '[a-zA-Z0-9\-](2017[0-9-]*)-.*pcap'
-        aBase = str(os.path.basename(a))
-        bBase = str(os.path.basename(b))
-        aDateStr = None
-        bDateStr = None
+            # wait for workers to finish
+            pool.join()
 
-        # parse first filename
-        try:
-            aDateStr = re.search(regex, aBase).group(1)
-        except AttributeError:
-            print('Ignore a', aBase)
+        self._log_errors()
+        self._log_results()
 
-        # parse second filename
-        try:
-            bDateStr = re.search(regex, bBase).group(1)
-        except AttributeError:
-            print('Ignore b', bBase)
-
-        # return nagative value, zero or positive value
-        aDate = dt.strptime(aDateStr, "%Y%m%d-%H%M%S")
-        bDate = dt.strptime(bDateStr, "%Y%m%d-%H%M%S")
-
-        #print("Compare ",aDate,bDate,(aDate<bDate))
-        # compare and sort from oldest to new
-        if aDate < bDate:
-            return -1
-
-        elif aDate == bDate:
-            try:
-                # in case date is equal there is a integer before the
-                # timestamp to sort
-                regex = '[a-zA-Z\-][0-9]\-([0-9]).*'
-                numA = int(re.search(regex, aBase).group(1))
-                numB = int(re.search(regex, bBase).group(1))
-
-                # also VPN 1 and 2 are present
-                regex = '[a-zA-Z\-]([0-9])\-[0-9].*'
-                vpnA = int(re.search(regex, aBase).group(1))
-                vpnB = int(re.search(regex, bBase).group(1))
-
-            except AttributeError:
-                numA = 0
-                numB = 0
-
-            #print("fetched numbers ",numA,vpnA,numB,vpnB)
-            if numA < numB:
-                return -1
-            elif numA == numB:
-                # should never be the case
-                return 0
-            else:
-                return 1
-        else:
-            return 1
+        # return number of pcap files
+        return len(pcapfiles)
 
 
 if __name__ == '__main__':
@@ -182,10 +116,27 @@ if __name__ == '__main__':
         help='path to the output directory'
     )
 
-
     args = parser.parse_args()
     scanner = Main(
         outputdir=args.outputdir,
         inputdir=args.inputdir
     )
-    scanner.analyse()
+    # measure time
+    startTime = time.time()
+
+    # do the processing
+    processed = scanner.start()
+
+    # output summary of timing
+    duration = time.time() - startTime
+
+    if duration < 60:
+        print(
+            "\n\nProcessing {} pcaps took {:2.2f} seconds"
+            .format(processed, duration)
+        )
+    elif duration < 3600:
+        print(
+            "\n\nProcessing {} pcaps took {} minutes, {:2.2f} seconds"
+            .format(processed, int(duration) / 60, int(duration) % 60)
+        )

@@ -13,7 +13,7 @@ def __add_protocol(storage, pkt):
     if protocol in storage.keys():
         storage[protocol] += 1
     else:
-        storage[protocol] = 0
+        storage[protocol] = 1
 
 
 def __add_port(storage, pkt):
@@ -46,7 +46,7 @@ def log(outputdir):
                 for port, protocols in ports.items():
                     for protocol, counter in protocols.items():
                         w.writerow(
-                            ["{src},{dst},{port},{prot}, {c}"
+                            ["{src},{dst},{port},{prot},{c}"
                             .format(
                                 src=src_addr,
                                 dst=dst_addr,

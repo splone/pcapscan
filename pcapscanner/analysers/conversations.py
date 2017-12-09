@@ -41,7 +41,7 @@ def analyse(pkt):
 
         else:
             #FIXME dict not synced
-            conversations[src_addr] = dict()
+            conversations[src_addr] = manager.dict()
 
     except AttributeError as e:
         # ignore packets that aren't TCP/UDP or IPv4

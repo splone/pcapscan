@@ -117,7 +117,8 @@ def process_pcap(pcapfile, analyzers, progressbar_position):
 
         cap = pyshark.FileCapture(
             os.path.abspath(pcapfile),
-            only_summaries=False)
+            use_json=True
+        )
         cap.set_debug()
 
         # read array (to resolve futures) and return only the information

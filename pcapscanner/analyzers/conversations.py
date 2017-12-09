@@ -46,13 +46,7 @@ def log(outputdir):
                 for port, protocols in ports.items():
                     for protocol, counter in protocols.items():
                         w.writerow(
-                            ["{src},{dst},{port},{prot},{c}"
-                            .format(
-                                src=src_addr,
-                                dst=dst_addr,
-                                port=port,
-                                prot=protocol,
-                                c=counter)]
+                            [src_addr, dst_addr, port, protocol, counter]
                         )
 
 

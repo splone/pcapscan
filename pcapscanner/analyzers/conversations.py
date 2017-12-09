@@ -33,7 +33,7 @@ def __add_dst_addr(storage, pkt):
 
 
 def init():
-    setattr(analyse, 'storage', manager.dict())
+    setattr(analyze, 'storage', manager.dict())
 
 
 def log(outputdir):
@@ -41,7 +41,7 @@ def log(outputdir):
     with open(fn, 'w') as f:
         w = csv.writer(f)
 
-        for src_addr, conversation in analyse.storage.items():
+        for src_addr, conversation in analyze.storage.items():
             for dst_addr, ports in conversation.items():
                 for port, protocols in ports.items():
                     for protocol, counter in protocols.items():
@@ -56,10 +56,10 @@ def log(outputdir):
                         )
 
 
-def analyse(pkt):
+def analyze(pkt):
     """ Count conversations between hosts. """
 
-    conversations = analyse.storage
+    conversations = analyze.storage
     try:
         src_addr = str(pkt.ip_src)
 

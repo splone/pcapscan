@@ -8,20 +8,20 @@ manager = Manager()
 
 
 def init():
-    setattr(analyse, 'storage', manager.dict())
+    setattr(analyze, 'storage', manager.dict())
 
 
 def log(outputdir):
     fn = os.path.join(outputdir, CSVFN)
     with open(fn, 'w') as f:
         w = csv.writer(f)
-        w.writerows(analyse.storage.items())
+        w.writerows(analyze.storage.items())
 
 
-def analyse(pkt):
+def analyze(pkt):
     """ Count the occurences of all host either as src or dest. """
 
-    hosts = analyse.storage
+    hosts = analyze.storage
     try:
         src_addr = str(pkt.ip_src)
         dst_addr = str(pkt.ip_dst)

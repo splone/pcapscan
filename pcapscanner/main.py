@@ -13,12 +13,12 @@ import csv
 import time
 from multiprocessing import Pool
 
-from analysers import hosts, conversations
+from analyzers import hosts, conversations
 import pcap
 
 NUM_THREADS = 4
 
-ANALYSERS = [
+ANALYZERS = [
     hosts,
     conversations
 ]
@@ -59,8 +59,8 @@ class Main:
             )
         self.inputdir = inputdir
 
-        # initialize all analysers
-        for a in ANALYSERS:
+        # initialize all analyzers
+        for a in ANALYZERS:
             a.init()
 
     def _log_errors(self):
@@ -74,7 +74,7 @@ class Main:
         print("ignored {} files".format(len(self.ignoredFiles)))
 
     def _log_results(self):
-        for a in ANALYSERS:
+        for a in ANALYZERS:
             a.log(self.outputdir)
 
     def start(self):
@@ -96,7 +96,7 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a.analyse for a in ANALYSERS], progressbar_position)
+                    (fn, [a.analyze for a in ANALYZERS], progressbar_position)
                 )
 
             # close pool
@@ -114,7 +114,7 @@ class Main:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='analysing pcaps for fun an profit'
+        description='analyzing pcaps for fun an profit'
     )
     parser.add_argument(
         'inputdir',

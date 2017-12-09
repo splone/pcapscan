@@ -11,7 +11,7 @@ from collections import namedtuple
 """
 This is the destination format of parsed pcap packages.
 We use this to save memory, so we do not need to store
-the whole pcap in RAM before analysers start their work.
+the whole pcap in RAM before analyzers start their work.
 """
 ParsedPackage = namedtuple('ParsedPackage', [
     'protocol',
@@ -97,7 +97,7 @@ def walk(directory):
     )
 
 
-def process_pcap(pcapfile, analysers, progressbar_position):
+def process_pcap(pcapfile, analyzers, progressbar_position):
     """
     Scan the given file object for hosts data, collect statistics for each.
     Using pyshark as pcap parser (does work :) )
@@ -145,8 +145,8 @@ def process_pcap(pcapfile, analysers, progressbar_position):
                 continue
 
             # process the stats we need
-            for analyser in analysers:
-                analyser(parsedPkg)
+            for analyzer in analyzers:
+                analyer(parsedPkg)
 
     except KeyboardInterrupt:
         print("Bye")

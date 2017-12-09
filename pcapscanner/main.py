@@ -1,3 +1,4 @@
+#env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -22,6 +23,20 @@ ANALYSERS = [
     conversations
 ]
 
+ASCII_LOGO = """
+
+@@@@@@@    @@@@@@@   @@@@@@   @@@@@@@    @@@@@@    @@@@@@@   @@@@@@   @@@  @@@
+@@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@   @@@@@@@@  @@@@@@@@  @@@@ @@@
+@@!  @@@  !@@       @@!  @@@  @@!  @@@  !@@       !@@       @@!  @@@  @@!@!@@@
+!@!  @!@  !@!       !@!  @!@  !@!  @!@  !@!       !@!       !@!  @!@  !@!!@!@!
+@!@@!@!   !@!       @!@!@!@!  @!@@!@!   !!@@!!    !@!       @!@!@!@!  @!@ !!@!
+!!@!!!    !!!       !!!@!!!!  !!@!!!     !!@!!!   !!!       !!!@!!!!  !@!  !!!
+!!:       :!!       !!:  !!!  !!:            !:!  :!!       !!:  !!!  !!:  !!!
+:!:       :!:       :!:  !:!  :!:           !:!   :!:       :!:  !:!  :!:  !:!
+ ::        ::: :::  ::   :::   ::       :::: ::    ::: :::  ::   :::   ::   ::
+ :         :: :: :   :   : :   :        :: : :     :: :: :   :   : :  ::    :
+
+"""
 
 class Main:
 
@@ -99,7 +114,7 @@ class Main:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Process some integers.'
+        description='analysing pcaps for fun an profit'
     )
     parser.add_argument(
         'inputdir',
@@ -113,6 +128,8 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
+    print(ASCII_LOGO)
+
     scanner = Main(
         outputdir=args.outputdir,
         inputdir=args.inputdir

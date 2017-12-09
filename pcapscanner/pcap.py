@@ -146,7 +146,7 @@ def process_pcap(pcapfile, analyzers, progressbar_position):
 
             # process the stats we need
             for analyzer in analyzers:
-                analyer(parsedPkg)
+                analyzer(parsedPkg)
 
     except KeyboardInterrupt:
         print("Bye")

@@ -1,8 +1,27 @@
-CSV = "hostcounter.csv"
+from multiprocessing import Manager
+import csv
+import os
+
+CSVFN = "hostcounter.csv"
+
+manager = Manager()
 
 
-def host_counter(pkt):
-    hosts = host_counter.storage
+def init():
+    setattr(analyse, 'storage', manager.dict())
+
+
+def log(outputdir):
+    fn = os.path.join(outputdir, CSVFN)
+    with open(fn, 'w') as f:
+        w = csv.writer(f)
+        w.writerows(analyse.storage.items())
+
+
+def analyse(pkt):
+    """ Count the occurences of all host either as src or dest. """
+
+    hosts = analyse.storage
     try:
         src_addr = str(pkt.ip_src)
         dst_addr = str(pkt.ip_dst)

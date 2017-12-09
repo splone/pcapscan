@@ -1,3 +1,4 @@
+#env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -10,7 +11,7 @@ import argparse
 import os
 import csv
 import time
-from multiprocessing import Pool, Manager
+from multiprocessing import Pool
 
 from analysers import hosts, conversations
 import pcap
@@ -18,10 +19,24 @@ import pcap
 NUM_THREADS = 4
 
 ANALYSERS = [
-    (hosts.host_counter, hosts.CSV),
-    (conversations.conversation_counter, conversations.CSV)
+    hosts,
+    conversations
 ]
 
+ASCII_LOGO = """
+
+@@@@@@@    @@@@@@@   @@@@@@   @@@@@@@    @@@@@@    @@@@@@@   @@@@@@   @@@  @@@
+@@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@@  @@@@@@@   @@@@@@@@  @@@@@@@@  @@@@ @@@
+@@!  @@@  !@@       @@!  @@@  @@!  @@@  !@@       !@@       @@!  @@@  @@!@!@@@
+!@!  @!@  !@!       !@!  @!@  !@!  @!@  !@!       !@!       !@!  @!@  !@!!@!@!
+@!@@!@!   !@!       @!@!@!@!  @!@@!@!   !!@@!!    !@!       @!@!@!@!  @!@ !!@!
+!!@!!!    !!!       !!!@!!!!  !!@!!!     !!@!!!   !!!       !!!@!!!!  !@!  !!!
+!!:       :!!       !!:  !!!  !!:            !:!  :!!       !!:  !!!  !!:  !!!
+:!:       :!:       :!:  !:!  :!:           !:!   :!:       :!:  !:!  :!:  !:!
+ ::        ::: :::  ::   :::   ::       :::: ::    ::: :::  ::   :::   ::   ::
+ :         :: :: :   :   : :   :        :: : :     :: :: :   :   : :  ::    :
+
+"""
 
 class Main:
 
@@ -45,9 +60,8 @@ class Main:
         self.inputdir = inputdir
 
         # initialize all analysers
-        manager = Manager()
-        for a, _ in ANALYSERS:
-            setattr(a, 'storage', manager.dict())
+        for a in ANALYSERS:
+            a.init()
 
     def _log_errors(self):
         if not self.ignoredFiles:
@@ -60,11 +74,8 @@ class Main:
         print("ignored {} files".format(len(self.ignoredFiles)))
 
     def _log_results(self):
-        for a, csvfn in ANALYSERS:
-            fn = os.path.join(self.outputdir, csvfn)
-            with open(fn, 'w') as f:
-                w = csv.writer(f)
-                w.writerows(a.storage.items())
+        for a in ANALYSERS:
+            a.log(self.outputdir)
 
     def start(self):
         pcapfiles = pcap.walk(self.inputdir)
@@ -85,7 +96,7 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a for a, _ in ANALYSERS], progressbar_position)
+                    (fn, [a.analyse for a in ANALYSERS], progressbar_position)
                 )
 
             # close pool
@@ -103,7 +114,7 @@ class Main:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Process some integers.'
+        description='analysing pcaps for fun an profit'
     )
     parser.add_argument(
         'inputdir',
@@ -117,6 +128,8 @@ if __name__ == '__main__':
     )
 
     args = parser.parse_args()
+    print(ASCII_LOGO)
+
     scanner = Main(
         outputdir=args.outputdir,
         inputdir=args.inputdir

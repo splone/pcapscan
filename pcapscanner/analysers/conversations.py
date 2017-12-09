@@ -1,9 +1,33 @@
-CSV = "conversations.csv"
+from multiprocessing import Manager
+import csv
+import os
+
+CSVFN = "conversations.csv"
+
+manager = Manager()
 
 
-def conversation_counter(pkt):
-    conversations = conversation_counter.storage
+def init():
+    setattr(analyse, 'storage', manager.dict())
 
+
+def log(outputdir):
+    fn = os.path.join(outputdir, CSVFN)
+    with open(fn, 'w') as f:
+        w = csv.writer(f)
+
+        for src_addr, conversation in analyse.storage.items():
+            for dst_addr, counter in conversation.items():
+                w.writerow(
+                    ["{src},{dst},{c}"
+                    .format(src=src_addr, dst=dst_addr, c=counter)]
+                )
+
+
+def analyse(pkt):
+    """ Count conversations between hosts. """
+
+    conversations = analyse.storage
     try:
         src_addr = str(pkt.ip_src)
         dst_addr = str(pkt.ip_dst)

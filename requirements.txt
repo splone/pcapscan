@@ -1,5 +1,9 @@
 virtualenv
 tqdm
+scapy-python3
+pypacker
 pyshark
 dpkt
 flake8
+pip
+wheel

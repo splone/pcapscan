@@ -2,16 +2,26 @@ import os
 import re
 import sys
 import gzip
+import dpkt
 import pyshark
+import socket
+
+import pypacker.pypacker as pypacker
+from pypacker.pypacker import Packet
+from pypacker import ppcap
+from pypacker import psocket
+from pypacker.layer12 import arp, ethernet, ieee80211, prism
+from pypacker.layer3 import ip, icmp
+from pypacker.layer4 import udp, tcp
+
 import functools
 from tqdm import tqdm
 from datetime import datetime as dt
 from collections import namedtuple
 
 """
-This is the destination format of parsed pcap packages.
-We use this to save memory, so we do not need to store
-the whole pcap in RAM before analysers start their work.
+This is the destination format of parsed pcap packages
+to decouple PCAP parser data structures from analysers code
 """
 ParsedPackage = namedtuple('ParsedPackage', [
     'protocol',
@@ -19,7 +29,8 @@ ParsedPackage = namedtuple('ParsedPackage', [
     'ip_dst',
     'port_src',
     'port_dst',
-    'pcap_file'
+    'pcap_file',
+    'timestamp'
 ])
 
 
@@ -46,6 +57,10 @@ def sort_by_date(a, b):
     except AttributeError:
         print('Ignore b', bBase)
 
+    # in case we have no valid timestamp return 0
+    if aDateStr is None or bDateStr is None:
+        print("sort_by_date: Was not able to extract timestamp comparing {} to {}".format(aBase,bBase))
+        return 0
     # return nagative value, zero or positive value
     aDate = dt.strptime(aDateStr, "%Y%m%d-%H%M%S")
     bDate = dt.strptime(bDateStr, "%Y%m%d-%H%M%S")
@@ -96,57 +111,174 @@ def walk(directory):
         pcapFilesUnordered, key=functools.cmp_to_key(sort_by_date)
     )
 
-
-def process_pcap(pcapfile, analysers, progressbar_position):
+def parserDpkt(pcapfile, progressbar_position):
     """
-    Scan the given file object for hosts data, collect statistics for each.
-    Using pyshark as pcap parser (does work :) )
-
-    see https://github.com/KimiNewt/pyshark
-    https://thepacketgeek.com/pyshark-using-the-packet-object/
-
-    If a exception is thrown the same error is shown in wireshark
+    Parsing the RawIP encapsulated PCAPs using dpkt. Expects an unpacked file ref.
+    https://pypi.python.org/pypi/dpkt
     """
-    print("processing {}".format(pcapfile))
-
-    f = open(pcapfile, 'rb')
+    out=[]
     try:
-        with gzip.open(f, 'rb') as g:
-            # test if this is really GZIP, raises exception if not
-            g.peek(1)
-
-        cap = pyshark.FileCapture(
-            os.path.abspath(pcapfile),
-            only_summaries=False)
-        cap.set_debug()
-
-        # read array (to resolve futures) and return only the information
-        # we need (to reduce memory needed)
-        for pkt in tqdm(
-            cap,
-            position=progressbar_position,
-            unit=" packages",
-            desc=os.path.basename(pcapfile)
-        ):
-
+        pcap = dpkt.pcap.Reader(pcapfile)
+        print("SUCCESS ",pcapfile.name)
+        for ts,buf in pcap:
             try:
+                ip = dpkt.ip.IP(buf)
+                tcp = ip.data
+                #print(tcp.sport)
                 # fetch the infos we need
+                # we use socket to convert inet IPv4 IP to human readable IP
+                # socket.inet_ntop(socket.AF_INET, inet)
                 parsedPkg = ParsedPackage(
-                            protocol=pkt.transport_layer,
-                            ip_src=pkt.ip.src,
-                            port_src=pkt[pkt.transport_layer].srcport,
-                            ip_dst=pkt.ip.dst,
-                            port_dst=pkt[pkt.transport_layer].dstport,
-                            pcap_file=pcapfile
+                            protocol=ip.p,
+                            ip_src=socket.inet_ntop(socket.AF_INET, ip.src),
+                            port_src=tcp.sport,
+                            ip_dst=socket.inet_ntop(socket.AF_INET, ip.dst),
+                            port_dst=tcp.dport,
+                            pcap_file=os.path.abspath(pcapfile.name),
+                            timestamp=str(dt.utcfromtimestamp(ts))
                 )
-
+                out.append(parsedPkg)
             except AttributeError:
                 # ignore packets that aren't TCP/UDP or IPv4
-                continue
+                pass
+            except ValueError:
+                print("ValueError happend as packages where parsed. We expect RawIP encapsulated PCAPs, maybe now we have a Ethernet encapsulated one. Abort.")
+                raise
+    except KeyboardInterrupt:
+        raise
+    except:
+        e=sys.exc_info()
+        print("FAILED ",e,str(os.path.abspath(pcapfile.name)))
+    finally:
+        pcapfile.close()
+    return out
 
-            # process the stats we need
-            for analyser in analysers:
-                analyser(parsedPkg)
+def parserPyshark(pcapfile, progressbar_position):
+    """
+    Uses tshark CLI in a bash subprocess, parses stdout. Slow but works well with
+    pcap.gz and pcap files.
+    https://github.com/KimiNewt/pyshark
+    """
+    out=[]
+    cap = pyshark.FileCapture(os.path.abspath(pcapfile.name), only_summaries=False)
+
+    # read array (to resolve futures) and return only the information
+    # we need to decouple data structures from analysers code
+    for pkt in tqdm(
+        cap,
+        position=progressbar_position,
+        unit=" packages",
+        desc=os.path.basename(pcapfile.name)
+    ):
+        #print("TIMESTAMP ",pkt.frame_info.get_field('time')," FIELDNAMES ",pkt.frame_info.field_names)
+        #for key,value in pkt.frame_info:
+
+        try:
+            # fetch the infos we need
+            parsedPkg = ParsedPackage(
+                        protocol=pkt.transport_layer,
+                        ip_src=pkt.ip.src,
+                        port_src=pkt[pkt.transport_layer].srcport,
+                        ip_dst=pkt.ip.dst,
+                        port_dst=pkt[pkt.transport_layer].dstport,
+                        pcap_file=os.path.abspath(pcapfile.name),
+                        timestamp=pkt.frame_info.get_field('time')
+            )
+            out.append(parsedPkg)
+        except AttributeError:
+            # ignore packets that aren't TCP/UDP or IPv4
+            continue
+    return out
+
+def parserPyPacker(pcapfile, progressbar_position):
+    """
+    Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with LinkType
+    Ethernet, but our dumps are RawIP. We can iterate and print the raw package
+    details, but parsing the packages does not work out of the box (because of RawIP).
+    https://github.com/mike01/pypacker
+
+    for encapsulation RawIP or Ethernet see here:
+    https://osqa-ask.wireshark.org/questions/49568/why-cant-this-wireshark-produced-1-packet-pcap-file-not-be-processed-using-winpcap-or-dpkt
+    """
+    out=[]
+    cap = ppcap.Reader(filename=os.path.abspath(pcapfile.name))
+
+    # read array (to resolve futures) and return only the information
+    # we need (to reduce memory needed)
+    for ts,buf in tqdm(
+        cap,
+        position=progressbar_position,
+        unit=" packages",
+        desc=os.path.basename(pcapfile.name)
+    ):
+
+        try:
+            eth = ethernet.Ethernet(buf)
+            print("timestamp {}: {}",ts,eth)
+#            for d in eth:
+#                print("   datum ",d)
+            # FIXME: this works well for PCAPs with LinkType "Ethernet" ,
+            #        but not "RawIP" like our dumps.
+            if eth[tcp.TCP] is not None:
+                print("{}: {}:{} -> {}:{}".format(ts, eth[ip.IP].src_s, eth[tcp.TCP].sport,eth[ip.IP].dst_s, eth[tcp.TCP].dport))
+
+        except AttributeError:
+            # ignore packets that aren't TCP/UDP or IPv4
+            continue
+    cap.close()
+    return out
+
+
+def parserScapy(pcapfile, progressbar_position):
+    """
+    Unfinished, never tested
+    https://phaethon.github.io/scapy/
+    """
+    out=[]
+    with PcapReader(pcapfile.name) as pcap_reader:
+      for pkt in pcap_reader:
+        #do something with the packet
+        pass
+    return out
+
+def process_pcap(pcapfilename, analysers, progressbar_position):
+    """
+    Scan the given file object for hosts data, collect statistics for each.
+    Using pypacker as parser
+    """
+    print("processing {}".format(pcapfilename))
+    # open pcap file
+    f = open(pcapfilename, 'rb')
+    try:
+        # test if it is a pcap.gz
+        g=None
+        try:
+            g=gzip.open(f, 'rb')
+            # test if this is really GZIP, raises exception if not
+            g.peek(1)
+            # if it is a gzipped files pass the unpacked file reference to the parser
+            f=g
+        except:
+            #TODO: remove! just for debug
+            print("THIS IS NOT A GZIP FILE: ",pcapfilename)
+            pass
+        #
+        # Choose one of the following parsers
+        #
+        # Pyshark CLI is slow but works
+        #parsedPkg=parserPyshark(f,progressbar_position)
+
+        # DPKT works for pcap and pcap.gz
+        parsedPkg=parserDpkt(f,progressbar_position)
+
+        # Unstable and unfinished
+        #parsedPkg=parserPyPacker(f,progressbar_position)
+        #parsedPkg=parserScapy(f,progressbar_position)
+
+        print("Analyse with ",len(parsedPkg),parsedPkg[0])
+        # process the stats we need
+        for analyser in analysers:
+            analyser(parsedPkg)
 
     except KeyboardInterrupt:
         print("Bye")
@@ -154,4 +286,6 @@ def process_pcap(pcapfile, analysers, progressbar_position):
     except Exception as e:
         print(e)
     finally:
+        if g is not None:
+            g.close()
         f.close()

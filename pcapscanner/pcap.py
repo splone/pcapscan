@@ -120,7 +120,12 @@ def parserDpkt(pcapfile, progressbar_position):
     try:
         pcap = dpkt.pcap.Reader(pcapfile)
         print("SUCCESS ",pcapfile.name)
-        for ts,buf in pcap:
+        for ts,buf in tqdm(
+            pcap,
+            position=progressbar_position,
+            unit=" packages",
+            desc=os.path.basename(pcapfile.name)
+        ):
             try:
                 ip = dpkt.ip.IP(buf)
                 tcp = ip.data
@@ -170,8 +175,6 @@ def parserPyshark(pcapfile, progressbar_position):
         unit=" packages",
         desc=os.path.basename(pcapfile.name)
     ):
-        #print("TIMESTAMP ",pkt.frame_info.get_field('time')," FIELDNAMES ",pkt.frame_info.field_names)
-        #for key,value in pkt.frame_info:
 
         try:
             # fetch the infos we need
@@ -192,6 +195,7 @@ def parserPyshark(pcapfile, progressbar_position):
 
 def parserPyPacker(pcapfile, progressbar_position):
     """
+    Does not work!
     Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with LinkType
     Ethernet, but our dumps are RawIP. We can iterate and print the raw package
     details, but parsing the packages does not work out of the box (because of RawIP).
@@ -260,22 +264,24 @@ def process_pcap(pcapfilename, analysers, progressbar_position):
             f=g
         except:
             #TODO: remove! just for debug
-            print("THIS IS NOT A GZIP FILE: ",pcapfilename)
+            #print("THIS IS NOT A GZIP FILE: ",pcapfilename)
             pass
         #
         # Choose one of the following parsers
         #
-        # Pyshark CLI is slow but works
+        # Pyshark CLI is slow but works (single thread ~1.200pkg/s, with 8 threads ~4.500pkg/s)
         #parsedPkg=parserPyshark(f,progressbar_position)
 
-        # DPKT works for pcap and pcap.gz
+        # DPKT works for pcap and pcap.gz and is fast (single thread ~50.000pkg/s, with 8 threads ~240.000pkg/s)
         parsedPkg=parserDpkt(f,progressbar_position)
 
         # Unstable and unfinished
         #parsedPkg=parserPyPacker(f,progressbar_position)
         #parsedPkg=parserScapy(f,progressbar_position)
 
-        print("  FETCHED {} PACKAGES FROM PCAP {}.\n  Example: {} ".format(len(parsedPkg),os.path.basename(pcapfilename),parsedPkg[0]))
+        #TODO: remove! just for debug
+        #print("  FETCHED {} PACKAGES FROM PCAP {}.\n  Example: {} ".format(len(parsedPkg),os.path.basename(pcapfilename),parsedPkg[0]))
+
         # process the stats we need
         for analyser in analysers:
             analyser(parsedPkg)
@@ -283,8 +289,6 @@ def process_pcap(pcapfilename, analysers, progressbar_position):
     except KeyboardInterrupt:
         print("Bye")
         sys.exit()
-    except Exception as e:
-        print(e)
     finally:
         if g is not None:
             g.close()

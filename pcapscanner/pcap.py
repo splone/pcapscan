@@ -275,7 +275,7 @@ def process_pcap(pcapfilename, analysers, progressbar_position):
         #parsedPkg=parserPyPacker(f,progressbar_position)
         #parsedPkg=parserScapy(f,progressbar_position)
 
-        print("Analyse with ",len(parsedPkg),parsedPkg[0])
+        print("  FETCHED {} PACKAGES FROM PCAP {}.\n  Example: {} ".format(len(parsedPkg),os.path.basename(pcapfilename),parsedPkg[0]))
         # process the stats we need
         for analyser in analysers:
             analyser(parsedPkg)

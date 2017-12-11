@@ -3,6 +3,7 @@ import re
 import sys
 import gzip
 import dpkt
+from dpkt.compat import compat_ord
 import pyshark
 import socket
 
@@ -29,6 +30,8 @@ ParsedPackage = namedtuple('ParsedPackage', [
     'ip_dst',
     'port_src',
     'port_dst',
+    'mac_src',
+    'mac_dst',
     'pcap_file',
     'timestamp'
 ])
@@ -129,16 +132,18 @@ def parserDpkt(pcapfile, progressbar_position):
             try:
                 ip = dpkt.ip.IP(buf)
                 tcp = ip.data
-                #print(tcp.sport)
                 # fetch the infos we need
                 # we use socket to convert inet IPv4 IP to human readable IP
                 # socket.inet_ntop(socket.AF_INET, inet)
+                #FIXME: why does the mac we parse to short? XX:XX:XX:XX instead of XX:XX:XX:XX:XX?
                 parsedPkg = ParsedPackage(
                             protocol=ip.p,
                             ip_src=socket.inet_ntop(socket.AF_INET, ip.src),
                             port_src=tcp.sport,
                             ip_dst=socket.inet_ntop(socket.AF_INET, ip.dst),
                             port_dst=tcp.dport,
+                            mac_src=':'.join('%02x' % compat_ord(b) for b in ip.src),
+                            mac_dst=':'.join('%02x' % compat_ord(b) for b in ip.dst),
                             pcap_file=os.path.abspath(pcapfile.name),
                             timestamp=str(dt.utcfromtimestamp(ts))
                 )
@@ -184,6 +189,8 @@ def parserPyshark(pcapfile, progressbar_position):
                         port_src=pkt[pkt.transport_layer].srcport,
                         ip_dst=pkt.ip.dst,
                         port_dst=pkt[pkt.transport_layer].dstport,
+                        mac_src="IMPLEMENT",
+                        mac_dst="IMPLEMENT",
                         pcap_file=os.path.abspath(pcapfile.name),
                         timestamp=pkt.frame_info.get_field('time')
             )
@@ -280,7 +287,7 @@ def process_pcap(pcapfilename, analysers, progressbar_position):
         #parsedPkg=parserScapy(f,progressbar_position)
 
         #TODO: remove! just for debug
-        #print("  FETCHED {} PACKAGES FROM PCAP {}.\n  Example: {} ".format(len(parsedPkg),os.path.basename(pcapfilename),parsedPkg[0]))
+        print("  FETCHED {} PACKAGES FROM PCAP {}.\n  Example: {} ".format(len(parsedPkg),os.path.basename(pcapfilename),parsedPkg[0]))
 
         # process the stats we need
         for analyser in analysers:

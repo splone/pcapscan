@@ -40,7 +40,7 @@ ASCII_LOGO = """
 
 class Main:
 
-    def __init__(self, outputdir, inputdir):
+    def __init__(self, outputdir, inputdir, parser):
 
         # log files
         self.outputdir = outputdir

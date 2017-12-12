@@ -34,6 +34,12 @@ ParsedPackage = namedtuple('ParsedPackage', [
     'timestamp'
 ])
 
+class Parser(Enum):
+    DPKT = 'dpkt'
+    PYPACKER = 'pypacker'
+    SCAPY = 'scapy'
+    PYSHARK = 'pyshark'
+
 
 def sort_by_date(a, b):
     """
@@ -116,7 +122,8 @@ def walk(directory):
         pcapFilesUnordered, key=functools.cmp_to_key(sort_by_date)
     )
 
-def parserDpkt(pcapfile, progressbar_position):
+
+def parser_dpkt(pcapfile, progressbar_position):
     """
     Parsing the RawIP encapsulated PCAPs using dpkt. Expects an unpacked file ref.
     https://pypi.python.org/pypi/dpkt
@@ -170,7 +177,8 @@ def parserDpkt(pcapfile, progressbar_position):
         pcapfile.close()
     return out
 
-def parserPyshark(pcapfile, progressbar_position):
+
+def parser_pyshark(pcapfile, progressbar_position):
     """
     Uses tshark CLI in a bash subprocess, parses stdout. Slow but works well with
     pcap.gz and pcap files.
@@ -207,7 +215,8 @@ def parserPyshark(pcapfile, progressbar_position):
             continue
     return out
 
-def parserPyPacker(pcapfile, progressbar_position):
+
+def parser_pypacker(pcapfile, progressbar_position):
     """
     Does not work!
     Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with LinkType

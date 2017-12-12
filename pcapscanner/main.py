@@ -63,6 +63,8 @@ class Main:
         for a in ANALYZERS:
             a.init()
 
+        self.parser = parser
+
     def _log_errors(self):
         if not self.ignoredFiles:
             return
@@ -96,7 +98,7 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a.analyze for a in ANALYZERS], progressbar_position)
+                    (fn, [a.analyze for a in ANALYZERS], progressbar_position, self.parser)
                 )
 
             # close pool
@@ -126,13 +128,20 @@ if __name__ == '__main__':
         default='.',
         help='path to the output directory'
     )
+    parser.add_argument(
+        '-p', '--parser',
+        nargs='?',
+        default=pcap.Parser.DPKT.name,
+        choices=[p.name for p in pcap.Parser]
+    )
 
     args = parser.parse_args()
     print(ASCII_LOGO)
 
     scanner = Main(
         outputdir=args.outputdir,
-        inputdir=args.inputdir
+        inputdir=args.inputdir,
+        parser=args.parser
     )
     # measure time
     startTime = time.time()

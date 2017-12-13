@@ -153,8 +153,8 @@ def parser_dpkt(pcapfile, progressbar_position):
                             port_src=tcp.sport,
                             ip_dst=socket.inet_ntop(socket.AF_INET, ip.dst),
                             port_dst=tcp.dport,
-                            mac_src=':'.join('%02x' % compat_ord(b) for b in ip.src),
-                            mac_dst=':'.join('%02x' % compat_ord(b) for b in ip.dst),
+                            mac_src='unknown',
+                            mac_dst='unknown',
                             pcap_file=os.path.abspath(pcapfile.name),
                             timestamp=str(dt.utcfromtimestamp(ts))
                 )
@@ -303,37 +303,44 @@ def process_pcap(pcapfilename, analysers, progressbar_position, parser):
         if parser == Parser.PYSHARK.name:
             # Pyshark CLI is slow but works (single thread ~1.200pkg/s,
             # with 8 threads ~4.500pkg/s)
-            parsedPkg = parser_pyshark(f, progressbar_position)
+            parsed_packets = parser_pyshark(f, progressbar_position)
 
         elif parser == Parser.DPKT.name:
             # DPKT works for pcap and pcap.gz and is fast (single thread ~50.000pkg/s,
             # with 8 threads ~240.000pkg/s)
-            parsedPkg = parser_dpkt(f, progressbar_position)
+            parsed_packets = parser_dpkt(f, progressbar_position)
 
         elif parser == Parser.PYPACKER.name:
             # TODO implement parser
-            parsedPkg=parser_pypacker(f, progressbar_position)
+            parsed_packets = parser_pypacker(f, progressbar_position)
 
         elif parser == Parser.SCAPY.name:
             # TODO implement parser
-            parsedPkg = parser_scapy(f, progressbar_position)
+            parsed_packets = parser_scapy(f, progressbar_position)
 
         else:
             print("illegal parser")
+            return
 
         #TODO: remove! just for debug
         print(
-            "  FETCHED {amount} PACKAGES FROM PCAP {dir}.\n  Example: {pkt} ".
+            "FETCHED {amount} PACKAGES FROM PCAP {dir}.\n  Example: {pkt} ".
             format(
-                amount=len(parsedPkg),
+                amount=len(parsed_packets),
                 dir=os.path.basename(pcapfilename),
-                pkt=parsedPkg[0]
+                pkt=parsed_packets[0]
             )
         )
 
         # process the stats we need
-        for analyser in analysers:
-            analyser(parsedPkg)
+        for p in tqdm(parsed_packets,
+                position=progressbar_position,
+                ascii=True,
+                unit=" packages",
+        ):
+            for analyser in analysers:
+                analyser(p)
+
 
     except KeyboardInterrupt:
         print("Bye")

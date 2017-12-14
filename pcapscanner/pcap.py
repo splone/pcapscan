@@ -123,12 +123,12 @@ def walk(directory):
     )
 
 
-def parser_dpkt(pcapfile, progressbar_position):
+def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
     """
     Parsing the RawIP encapsulated PCAPs using dpkt. Expects an unpacked file ref.
     https://pypi.python.org/pypi/dpkt
     """
-    out=[]
+
     try:
         pcap = dpkt.pcap.Reader(pcapfile)
 
@@ -158,7 +158,10 @@ def parser_dpkt(pcapfile, progressbar_position):
                             pcap_file=os.path.abspath(pcapfile.name),
                             timestamp=str(dt.utcfromtimestamp(ts))
                 )
-                out.append(parsedPkg)
+
+                for analyser in analysers:
+                    analyser(parsedPkg)
+
             except AttributeError:
                 # ignore packets that aren't TCP/UDP or IPv4
                 pass
@@ -175,16 +178,14 @@ def parser_dpkt(pcapfile, progressbar_position):
         print("FAILED ", e, str(os.path.abspath(pcapfile.name)))
     finally:
         pcapfile.close()
-    return out
 
 
-def parser_pyshark(pcapfile, progressbar_position):
+def parser_pyshark_and_analyse(pcapfile, progressbar_position, analysers):
     """
     Uses tshark CLI in a bash subprocess, parses stdout. Slow but works well with
     pcap.gz and pcap files.
     https://github.com/KimiNewt/pyshark
     """
-    out = []
     cap = pyshark.FileCapture(os.path.abspath(pcapfile.name), only_summaries=False)
 
     # read array (to resolve futures) and return only the information
@@ -209,14 +210,16 @@ def parser_pyshark(pcapfile, progressbar_position):
                         pcap_file=os.path.abspath(pcapfile.name),
                         timestamp=pkt.frame_info.get_field('time')
             )
-            out.append(parsedPkg)
+
+            for analyser in analysers:
+                analyser(parsedPkg)
+
         except AttributeError:
             # ignore packets that aren't TCP/UDP or IPv4
             continue
-    return out
 
 
-def parser_pypacker(pcapfile, progressbar_position):
+def parser_pypacker_and_analyse(pcapfile, progressbar_position, analysers):
     """
     Does not work!
     Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with LinkType
@@ -227,7 +230,6 @@ def parser_pypacker(pcapfile, progressbar_position):
     for encapsulation RawIP or Ethernet see here:
     https://osqa-ask.wireshark.org/questions/49568/why-cant-this-wireshark-produced-1-packet-pcap-file-not-be-processed-using-winpcap-or-dpkt
     """
-    out = []
     cap = ppcap.Reader(filename=os.path.abspath(pcapfile.name))
 
     # read array (to resolve futures) and return only the information
@@ -262,20 +264,20 @@ def parser_pypacker(pcapfile, progressbar_position):
             # ignore packets that aren't TCP/UDP or IPv4
             continue
     cap.close()
-    return out
 
 
-def parser_scapy(pcapfile, progressbar_position):
+def parser_scapy(pcapfile, progressbar_position, analysers):
     """
     Unfinished, never tested
     https://phaethon.github.io/scapy/
     """
-    out = []
     with PcapReader(pcapfile.name) as pcap_reader:
-      for pkt in pcap_reader:
-        #do something with the packet
-        pass
-    return out
+        for pkt in pcap_reader:
+            # TODO parse packet
+            analysers = []
+
+            for analyser in analysers:
+                analyser(parsedPkg)
 
 
 def process_pcap(pcapfilename, analysers, progressbar_position, parser):
@@ -301,46 +303,14 @@ def process_pcap(pcapfilename, analysers, progressbar_position, parser):
             pass
 
         if parser == Parser.PYSHARK.name:
-            # Pyshark CLI is slow but works (single thread ~1.200pkg/s,
-            # with 8 threads ~4.500pkg/s)
-            parsed_packets = parser_pyshark(f, progressbar_position)
+            parser_pyshark_and_analyse(f, progressbar_position, analysers)
 
         elif parser == Parser.DPKT.name:
-            # DPKT works for pcap and pcap.gz and is fast (single thread ~50.000pkg/s,
-            # with 8 threads ~240.000pkg/s)
-            parsed_packets = parser_dpkt(f, progressbar_position)
-
-        elif parser == Parser.PYPACKER.name:
-            # TODO implement parser
-            parsed_packets = parser_pypacker(f, progressbar_position)
-
-        elif parser == Parser.SCAPY.name:
-            # TODO implement parser
-            parsed_packets = parser_scapy(f, progressbar_position)
+            parser_dpkt_and_analyse(f, progressbar_position, analysers)
 
         else:
             print("illegal parser")
             return
-
-        #TODO: remove! just for debug
-        print(
-            "FETCHED {amount} PACKAGES FROM PCAP {dir}.\n  Example: {pkt} ".
-            format(
-                amount=len(parsed_packets),
-                dir=os.path.basename(pcapfilename),
-                pkt=parsed_packets[0]
-            )
-        )
-
-        # process the stats we need
-        for p in tqdm(parsed_packets,
-                position=progressbar_position,
-                ascii=True,
-                unit=" packages",
-        ):
-            for analyser in analysers:
-                analyser(p)
-
 
     except KeyboardInterrupt:
         print("Bye")

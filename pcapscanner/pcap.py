@@ -34,6 +34,7 @@ ParsedPackage = namedtuple('ParsedPackage', [
     'timestamp'
 ])
 
+
 class Parser(Enum):
     DPKT = 'dpkt'
     PYPACKER = 'pypacker'
@@ -67,7 +68,8 @@ def sort_by_date(a, b):
     # in case we have no valid timestamp return 0
     if aDateStr is None or bDateStr is None:
         print(
-            "sort_by_date: Was not able to extract timestamp comparing {} to {}".
+            "sort_by_date: Was not able to extract timestamp "
+            "comparing {} to {}".
             format(aBase, bBase)
         )
         return 0
@@ -125,7 +127,9 @@ def walk(directory):
 
 def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
     """
-    Parsing the RawIP encapsulated PCAPs using dpkt. Expects an unpacked file ref.
+    Parsing the RawIP encapsulated PCAPs using dpkt. Expects an unpacked
+    file ref.
+
     https://pypi.python.org/pypi/dpkt
     """
 
@@ -133,7 +137,7 @@ def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
         pcap = dpkt.pcap.Reader(pcapfile)
 
         print("SUCCESS ", pcapfile.name)
-        for ts,buf in tqdm(
+        for ts, buf in tqdm(
             pcap,
             position=progressbar_position,
             unit=" packages",
@@ -146,7 +150,7 @@ def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
                 # fetch the infos we need
                 # we use socket to convert inet IPv4 IP to human readable IP
                 # socket.inet_ntop(socket.AF_INET, inet)
-                #FIXME: get MAC adress
+                # FIXME: get MAC adress
                 parsedPkg = ParsedPackage(
                             protocol=ip.p,
                             ip_src=socket.inet_ntop(socket.AF_INET, ip.src),
@@ -167,10 +171,11 @@ def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
                 pass
             except ValueError:
                 print(
-                    "ValueError happend as packages where parsed. We expect RawIP "
-                    "encapsulated PCAPs, maybe now we have a Ethernet encapsulated "
-                    "one. Abort.")
+                    "ValueError happend as packages where parsed. We expect "
+                    "RawIP encapsulated PCAPs, maybe now we have a Ethernet "
+                    "encapsulated one. Abort.")
                 raise
+
     except KeyboardInterrupt:
         raise
     except:
@@ -182,11 +187,14 @@ def parser_dpkt_and_analyse(pcapfile, progressbar_position, analysers):
 
 def parser_pyshark_and_analyse(pcapfile, progressbar_position, analysers):
     """
-    Uses tshark CLI in a bash subprocess, parses stdout. Slow but works well with
-    pcap.gz and pcap files.
+    Uses tshark CLI in a bash subprocess, parses stdout. Slow but works
+    well with pcap.gz and pcap files.
     https://github.com/KimiNewt/pyshark
     """
-    cap = pyshark.FileCapture(os.path.abspath(pcapfile.name), only_summaries=False)
+    cap = pyshark.FileCapture(
+            os.path.abspath(pcapfile.name),
+            only_summaries=False
+         )
 
     # read array (to resolve futures) and return only the information
     # we need to decouple data structures from analysers code
@@ -222,9 +230,11 @@ def parser_pyshark_and_analyse(pcapfile, progressbar_position, analysers):
 def parser_pypacker_and_analyse(pcapfile, progressbar_position, analysers):
     """
     Does not work!
-    Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with LinkType
-    Ethernet, but our dumps are RawIP. We can iterate and print the raw package
-    details, but parsing the packages does not work out of the box (because of RawIP).
+    Very fast, reads only .pcap (no .gz). Problem is it reads PCAPs with
+    LinkType Ethernet, but our dumps are RawIP. We can iterate and print
+    the raw package details, but parsing the packages does not work out of
+    the box (because of RawIP).
+
     https://github.com/mike01/pypacker
 
     for encapsulation RawIP or Ethernet see here:
@@ -234,7 +244,7 @@ def parser_pypacker_and_analyse(pcapfile, progressbar_position, analysers):
 
     # read array (to resolve futures) and return only the information
     # we need (to reduce memory needed)
-    for ts,buf in tqdm(
+    for ts, buf in tqdm(
         cap,
         position=progressbar_position,
         unit=" packages",
@@ -295,11 +305,12 @@ def process_pcap(pcapfilename, analysers, progressbar_position, parser):
             g = gzip.open(f, 'rb')
             # test if this is really GZIP, raises exception if not
             g.peek(1)
-            # if it is a gzipped files pass the unpacked file reference to the parser
+            # if it is a gzipped files pass the unpacked file reference
+            # to the parser
             f = g
         except:
-            #TODO: remove! just for debug
-            #print("THIS IS NOT A GZIP FILE: ",pcapfilename)
+            # TODO: remove! just for debug
+            # print("THIS IS NOT A GZIP FILE: ",pcapfilename)
             pass
 
         if parser == Parser.PYSHARK.name:

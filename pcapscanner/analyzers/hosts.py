@@ -1,14 +1,14 @@
-from multiprocessing import Manager
+from multiprocessing import Lock
 import csv
 import os
 
 CSVFN = "hostcounter.csv"
 
-manager = Manager()
+lock = Lock()
 
 
 def init():
-    setattr(analyze, 'storage', manager.dict())
+    setattr(analyze, 'storage', dict())
 
 
 def log(outputdir):
@@ -20,7 +20,7 @@ def log(outputdir):
 
 def analyze(pkt):
     """ Count the occurences of all host either as src or dest. """
-
+    lock.acquire()
     hosts = analyze.storage
     try:
         src_addr = str(pkt.ip_src)
@@ -39,3 +39,5 @@ def analyze(pkt):
     except AttributeError as e:
         # ignore packets that aren't TCP/UDP or IPv4
         pass
+    finally:
+        lock.release()

@@ -11,7 +11,7 @@ import argparse
 import os
 import csv
 import time
-from multiprocessing import Pool
+from multiprocessing.dummy import Pool
 
 from analyzers import hosts, conversations
 import pcap
@@ -37,6 +37,7 @@ ASCII_LOGO = """
  :         :: :: :   :   : :   :        :: : :     :: :: :   :   : :  ::    :
 
 """
+
 
 class Main:
 
@@ -98,7 +99,8 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a.analyze for a in ANALYZERS], progressbar_position, self.parser)
+                    (fn, [a.analyze for a in ANALYZERS],
+                        progressbar_position, self.parser)
                 )
 
             # close pool

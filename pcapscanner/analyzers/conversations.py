@@ -1,10 +1,10 @@
-from multiprocessing import Manager
+from multiprocessing import Lock
 import csv
 import os
 
 CSVFN = "conversations.csv"
 
-manager = Manager()
+lock = Lock()
 
 
 def __add_protocol(storage, pkt):
@@ -20,7 +20,7 @@ def __add_port(storage, pkt):
     port = str(pkt.port_dst)
 
     if port not in storage.keys():
-        storage[port] = manager.dict()
+        storage[port] = dict()
     __add_protocol(storage[port], pkt)
 
 
@@ -28,12 +28,12 @@ def __add_dst_addr(storage, pkt):
     dst_addr = str(pkt.ip_dst)
 
     if dst_addr not in storage.keys():
-        storage[dst_addr] = manager.dict()
+        storage[dst_addr] = dict()
     __add_port(storage[dst_addr], pkt)
 
 
 def init():
-    setattr(analyze, 'storage', manager.dict())
+    setattr(analyze, 'storage', dict())
 
 
 def log(outputdir):
@@ -52,15 +52,17 @@ def log(outputdir):
 
 def analyze(pkt):
     """ Count conversations between hosts. """
-
+    lock.acquire()
     conversations = analyze.storage
     try:
         src_addr = str(pkt.ip_src)
 
         if src_addr not in conversations.keys():
-            conversations[src_addr] = manager.dict()
+            conversations[src_addr] = dict()
         __add_dst_addr(conversations[src_addr], pkt)
 
     except AttributeError as e:
         # ignore packets that aren't TCP/UDP or IPv4
         pass
+    finally:
+        lock.release()

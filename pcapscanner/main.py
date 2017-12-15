@@ -11,7 +11,7 @@ import argparse
 import os
 import csv
 import time
-from multiprocessing import Pool
+from multiprocessing.dummy import Pool
 
 from analyzers import hosts, conversations
 import pcap

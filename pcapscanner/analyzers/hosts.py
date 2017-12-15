@@ -6,6 +6,7 @@ CSVFN = "hostcounter.csv"
 
 lock = Lock()
 
+
 def init():
     setattr(analyze, 'storage', dict())
 

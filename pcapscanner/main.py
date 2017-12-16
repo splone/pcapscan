@@ -16,7 +16,7 @@ from multiprocessing import Pool
 from analyzers import hosts, conversations
 import pcap
 
-NUM_THREADS = 4
+NUM_THREADS = 12
 
 ANALYZERS = [
     hosts,

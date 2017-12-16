@@ -38,6 +38,7 @@ ASCII_LOGO = """
 
 """
 
+
 class Main:
 
     def __init__(self, outputdir, inputdir, parser):
@@ -98,7 +99,8 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a.analyze for a in ANALYZERS], progressbar_position, self.parser)
+                    (fn, [a.analyze for a in ANALYZERS],
+                        progressbar_position, self.parser)
                 )
 
             # close pool

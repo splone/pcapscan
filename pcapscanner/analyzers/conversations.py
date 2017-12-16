@@ -6,6 +6,7 @@ CSVFN = "conversations.csv"
 
 lock = Lock()
 
+
 def __add_protocol(storage, pkt):
     protocol = str(pkt.protocol)
 

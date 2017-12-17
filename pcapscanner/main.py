@@ -66,7 +66,7 @@ class Main:
 
 
     def start(self):
-        pcapfiles = pcap.walk(self.inputdir)[:3]
+        pcapfiles = pcap.walk(self.inputdir)
         print(
             "Collected list of {} files in {}".
             format(len(pcapfiles), self.inputdir)

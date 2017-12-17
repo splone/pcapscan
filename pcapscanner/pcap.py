@@ -51,28 +51,31 @@ def parser_dpkt(pcapfile, progressbar_position):
             unit=" packages",
             desc=os.path.basename(pcapfile.name)
         ):
-            try:
-                ip = dpkt.ip.IP(buf)
+
+            eth = dpkt.ethernet.Ethernet(buf)
+            ip = dpkt.ip.IP(buf)
+
+            data = {
+                "protocol": ip.get_proto(ip.p).__name__,
+                "ip_src": socket.inet_ntop(socket.AF_INET, ip.src),
+                "ip_dst": socket.inet_ntop(socket.AF_INET, ip.dst),
+                "mac_src": ':'.join(['%02x' % dpkt.compat_ord(x) for x in eth.src]),
+                "mac_dst": ':'.join(['%02x' % dpkt.compat_ord(x) for x in eth.dst]),
+                "pcap_file": os.path.abspath(pcapfile.name),
+                "timestamp": dt.utcfromtimestamp(ts),
+            }
+
+            if ip.get_proto(ip.p) == dpkt.tcp.TCP:
                 tcp = ip.data
+                data["port_dst"] = tcp.dport
+                data["port_src"] = tcp.sport
 
-                bulk_data.append({
-                    "protocol": ip.p,
-                    "ip_src": socket.inet_ntop(socket.AF_INET, ip.src),
-                    "port_src": tcp.sport,
-                    "ip_dst": socket.inet_ntop(socket.AF_INET, ip.dst),
-                    "port_dst": tcp.dport,
-                    "mac_src": "unknown",
-                    "mac_dst": "unknown",
-                    "pcap_file": os.path.abspath(pcapfile.name),
-                    "timestamp": dt.utcfromtimestamp(ts),
-                })
-                if len(bulk_data) == 1000:
-                    helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
-                    bulk_data = []
+            bulk_data.append(data)
 
-            except AttributeError:
-                # ignore packets that aren't TCP/UDP or IPv4
-                pass
+            if len(bulk_data) == 1000:
+                helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
+                bulk_data = []
+
 
         if bulk_data:
             helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')

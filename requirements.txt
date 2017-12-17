@@ -7,3 +7,4 @@ dpkt
 flake8
 pip
 wheel
+elasticsearch

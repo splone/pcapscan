@@ -7,6 +7,7 @@ import socket
 from tqdm import tqdm
 from datetime import datetime as dt
 from elasticsearch import Elasticsearch
+from elasticsearch import helpers
 
 
 def walk(directory):
@@ -43,6 +44,7 @@ def parser_dpkt(pcapfile, progressbar_position):
             }
         })
 
+        bulk_data = []
         for ts, buf in tqdm(
             pcap,
             position=progressbar_position,
@@ -53,7 +55,7 @@ def parser_dpkt(pcapfile, progressbar_position):
                 ip = dpkt.ip.IP(buf)
                 tcp = ip.data
 
-                es.index(index="packets", body={
+                bulk_data.append({
                     "protocol": ip.p,
                     "ip_src": socket.inet_ntop(socket.AF_INET, ip.src),
                     "port_src": tcp.sport,
@@ -62,12 +64,18 @@ def parser_dpkt(pcapfile, progressbar_position):
                     "mac_src": "unknown",
                     "mac_dst": "unknown",
                     "pcap_file": os.path.abspath(pcapfile.name),
-                    "timestamp": dt.utcfromtimestamp(ts)
-                }, doc_type='packet')
+                    "timestamp": dt.utcfromtimestamp(ts),
+                })
+                if len(bulk_data) == 1000:
+                    helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
+                    bulk_data = []
 
             except AttributeError:
                 # ignore packets that aren't TCP/UDP or IPv4
                 pass
+
+        if bulk_data:
+            helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
 
     except KeyboardInterrupt:
         raise

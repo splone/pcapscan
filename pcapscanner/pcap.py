@@ -56,7 +56,8 @@ def parser_dpkt(pcapfile, progressbar_position):
             ip = dpkt.ip.IP(buf)
 
             data = {
-                "protocol": ip.get_proto(ip.p).__name__,
+                "protocol": ip.p, # TODO ip.get_proto(ip.p).__name__ would be human readible,
+                                  # but es only shows empty field
                 "ip_src": socket.inet_ntop(socket.AF_INET, ip.src),
                 "ip_dst": socket.inet_ntop(socket.AF_INET, ip.dst),
                 "mac_src": ':'.join(['%02x' % dpkt.compat_ord(x) for x in eth.src]),

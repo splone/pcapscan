@@ -1,0 +1,38 @@
+version: "2"
+services:
+
+# kibana + elastic search for global statistics
+  kibana:
+#    image: docker.elastic.co/kibana/kibana:5.3.0
+    image: kibana:5.3.0
+    links:
+      - elasticsearch
+    ports:
+      - "5601:5601"
+
+# kibana database backend elastic search
+  elasticsearch:
+    image: elasticsearch:5.3.0
+    ports:
+      - "9200:9200"
+#    image: docker.elastic.co/elasticsearch/elasticsearch:5.3.0
+#    environment:
+#      - bootstrap.memory_lock=true
+#      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#      - "node.max_local_storage_nodes=4"
+#    ulimits:
+#      memlock:
+#        soft: -1
+#        hard: -1
+#      nofile:
+#        soft: 65536
+#        hard: 65536
+#    mem_limit: 1g
+#    cap_add:
+#      - IPC_LOCK
+    volumes:
+      - stats-elasticsearch:/usr/share/elasticsearch/data
+
+# definition of volumens (globally)
+volumes:
+  stats-elasticsearch:

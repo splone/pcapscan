@@ -54,7 +54,7 @@ def walk(directory):
     return pcapFilesUnordered
 
 
-def parser_dpkt(pcapfile, progressbar_position, ouis):
+def parser_dpkt(pcapfile, progressbar_position, ouis, elastic):
     """
     Parsing the RawIP encapsulated PCAPs using dpkt. Expects an
     unpacked file ref.
@@ -63,7 +63,8 @@ def parser_dpkt(pcapfile, progressbar_position, ouis):
 
     try:
         pcap = dpkt.pcap.Reader(pcapfile)
-        es = Elasticsearch()
+
+        es = Elasticsearch([elastic])
         es.indices.create(index='packet', ignore=400, body={
             "packet": {
                 "properties": {
@@ -124,7 +125,7 @@ def parser_dpkt(pcapfile, progressbar_position, ouis):
         pcapfile.close()
 
 
-def process_pcap(pcapfilename, progressbar_position, ouis=dict()):
+def process_pcap(pcapfilename, progressbar_position, ouis=dict(), elastic="127.0.0.1:9200"):
     """
     Scan the given file object for hosts data, collect statistics for each.
     Using pypacker as parser
@@ -146,7 +147,7 @@ def process_pcap(pcapfilename, progressbar_position, ouis=dict()):
             # print("THIS IS NOT A GZIP FILE: ",pcapfilename)
             pass
 
-        parser_dpkt(f, progressbar_position, ouis)
+        parser_dpkt(f, progressbar_position, ouis, elastic)
 
     except KeyboardInterrupt:
         sys.exit()

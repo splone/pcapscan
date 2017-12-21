@@ -35,7 +35,7 @@ ASCII_LOGO = """
 
 class Main:
 
-    def __init__(self, outputdir, inputdir):
+    def __init__(self, outputdir, inputdir, elastic):
 
         # log files
         self.outputdir = outputdir
@@ -53,6 +53,7 @@ class Main:
                 .format(inputdir)
             )
         self.inputdir = inputdir
+        self.elastic = elastic
 
     def _log_errors(self):
         if not self.ignoredFiles:
@@ -86,7 +87,7 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, progressbar_position)
+                    (fn, progressbar_position, ouis, self.elastic)
                 )
 
             # close pool
@@ -115,13 +116,20 @@ if __name__ == '__main__':
         default='.',
         help='path to the output directory'
     )
+    parser.add_argument(
+        '-e', '--elastic',
+        nargs='?',
+        default='localhost:9200',
+        help='elasticsearch location scheme'
+    )
 
     args = parser.parse_args()
     print(ASCII_LOGO)
 
     scanner = Main(
         outputdir=args.outputdir,
-        inputdir=args.inputdir
+        inputdir=args.inputdir,
+        elastic=args.elastic
     )
     # measure time
     startTime = time.time()

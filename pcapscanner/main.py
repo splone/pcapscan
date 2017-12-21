@@ -13,15 +13,9 @@ import csv
 import time
 from multiprocessing import Pool
 
-from analyzers import hosts, conversations
 import pcap
 
 NUM_THREADS = 4
-
-ANALYZERS = [
-    hosts,
-    conversations
-]
 
 ASCII_LOGO = """
 
@@ -38,9 +32,10 @@ ASCII_LOGO = """
 
 """
 
+
 class Main:
 
-    def __init__(self, outputdir, inputdir, parser):
+    def __init__(self, outputdir, inputdir, elastic):
 
         # log files
         self.outputdir = outputdir
@@ -58,12 +53,7 @@ class Main:
                 .format(inputdir)
             )
         self.inputdir = inputdir
-
-        # initialize all analyzers
-        for a in ANALYZERS:
-            a.init()
-
-        self.parser = parser
+        self.elastic = elastic
 
     def _log_errors(self):
         if not self.ignoredFiles:
@@ -75,9 +65,6 @@ class Main:
 
         print("ignored {} files".format(len(self.ignoredFiles)))
 
-    def _log_results(self):
-        for a in ANALYZERS:
-            a.log(self.outputdir)
 
     def start(self):
         pcapfiles = pcap.walk(self.inputdir)
@@ -85,6 +72,8 @@ class Main:
             "Collected list of {} files in {}".
             format(len(pcapfiles), self.inputdir)
         )
+
+        ouis = pcap.fetch_ouis()
 
         with Pool(processes=NUM_THREADS) as pool:
             c = 0
@@ -98,7 +87,7 @@ class Main:
                 # asynchronously
                 pool.apply_async(
                     pcap.process_pcap,
-                    (fn, [a.analyze for a in ANALYZERS], progressbar_position, self.parser)
+                    (fn, progressbar_position, ouis, self.elastic)
                 )
 
             # close pool
@@ -108,7 +97,6 @@ class Main:
             pool.join()
 
         self._log_errors()
-        self._log_results()
 
         # return number of pcap files
         return len(pcapfiles)
@@ -129,10 +117,10 @@ if __name__ == '__main__':
         help='path to the output directory'
     )
     parser.add_argument(
-        '-p', '--parser',
+        '-e', '--elastic',
         nargs='?',
-        default=pcap.Parser.DPKT.name,
-        choices=[p.name for p in pcap.Parser]
+        default='localhost:9200',
+        help='elasticsearch location scheme'
     )
 
     args = parser.parse_args()
@@ -141,7 +129,7 @@ if __name__ == '__main__':
     scanner = Main(
         outputdir=args.outputdir,
         inputdir=args.inputdir,
-        parser=args.parser
+        elastic=args.elastic
     )
     # measure time
     startTime = time.time()

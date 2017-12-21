@@ -8,3 +8,4 @@ flake8
 pip
 wheel
 elasticsearch
+requests

@@ -4,10 +4,42 @@ import sys
 import gzip
 import dpkt
 import socket
+import requests
 from tqdm import tqdm
 from datetime import datetime as dt
 from elasticsearch import Elasticsearch
 from elasticsearch import helpers
+
+
+def fetch_ouis():
+    """
+    Fetch OUIs from internet. For performance reasons, we fetch it from
+    the wireshark sources instead of using standard.ieee.org.
+
+    Returns a dictionary with the following layout:
+
+        ouis {
+            'FC:FB:FB': 'Cisco'
+        }
+
+    """
+    ouis = dict()
+    r = requests.get("https://code.wireshark.org/review/gitweb?p=wireshark.git;a=blob_plain;f=manuf;hb=HEAD")
+
+    if not r.status_code == 200:
+        print("Failed to fetch OUIs from {}!".format(r.url))
+        sys.exit(1)
+
+    for line in r.iter_lines():
+        text = line.decode()
+
+        if text.startswith("#") or text == '':
+            continue
+
+        l = text.split('\t')
+        ouis[l[0]] = l[1]
+
+    return ouis
 
 
 def walk(directory):
@@ -22,7 +54,7 @@ def walk(directory):
     return pcapFilesUnordered
 
 
-def parser_dpkt(pcapfile, progressbar_position):
+def parser_dpkt(pcapfile, progressbar_position, ouis):
     """
     Parsing the RawIP encapsulated PCAPs using dpkt. Expects an
     unpacked file ref.
@@ -66,6 +98,12 @@ def parser_dpkt(pcapfile, progressbar_position):
                 "timestamp": dt.utcfromtimestamp(ts),
             }
 
+            if data["mac_src"][:8] in ouis:
+                data["vendor_src"] = ouis[data["mac_src"][:8]]
+
+            if data["mac_dst"][:8] in ouis:
+                data["vendor_dst"] = ouis[data["mac_dst"][:8]]
+
             if ip.get_proto(ip.p) == dpkt.tcp.TCP:
                 tcp = ip.data
                 data["port_dst"] = tcp.dport
@@ -77,7 +115,6 @@ def parser_dpkt(pcapfile, progressbar_position):
                 helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
                 bulk_data = []
 
-
         if bulk_data:
             helpers.bulk(es, index="packets", actions=bulk_data, doc_type='packet')
 
@@ -87,7 +124,7 @@ def parser_dpkt(pcapfile, progressbar_position):
         pcapfile.close()
 
 
-def process_pcap(pcapfilename, progressbar_position):
+def process_pcap(pcapfilename, progressbar_position, ouis=dict()):
     """
     Scan the given file object for hosts data, collect statistics for each.
     Using pypacker as parser
@@ -109,7 +146,7 @@ def process_pcap(pcapfilename, progressbar_position):
             # print("THIS IS NOT A GZIP FILE: ",pcapfilename)
             pass
 
-        parser_dpkt(f, progressbar_position)
+        parser_dpkt(f, progressbar_position, ouis)
 
     except KeyboardInterrupt:
         sys.exit()

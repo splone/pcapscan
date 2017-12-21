@@ -72,6 +72,8 @@ class Main:
             format(len(pcapfiles), self.inputdir)
         )
 
+        ouis = pcap.fetch_ouis()
+
         with Pool(processes=NUM_THREADS) as pool:
             c = 0
             # async map the process_pcap function to the list of files
